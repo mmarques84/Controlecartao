@@ -10,6 +10,7 @@ type PurchaseItem = {
   description: string;
   total_amount: number;
   installments: number;
+  category?: string;
   payment_method?: 'card' | 'pix';
   is_recurring?: number;
   recurring_label?: string | null;
@@ -64,7 +65,7 @@ export default function PurchaseHistoryScreen() {
     return purchases.filter((item) => {
       const paymentLabel = item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao';
       const matchesCard = selectedCard === 'Todos' || paymentLabel === selectedCard;
-      const haystack = `${item.description} ${paymentLabel} ${item.purchase_date}`.toLowerCase();
+      const haystack = `${item.description} ${item.category || 'Outros'} ${paymentLabel} ${item.purchase_date}`.toLowerCase();
       const matchesSearch = !normalizedSearch || haystack.includes(normalizedSearch);
       return matchesCard && matchesSearch;
     });
@@ -137,7 +138,7 @@ export default function PurchaseHistoryScreen() {
                   <View>
                     <Text style={styles.purchaseTitle}>{item.description}</Text>
                     <Text style={styles.purchaseMeta}>
-                      {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'} . {item.purchase_date}
+                      {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'} . {item.category || 'Outros'} . {item.purchase_date}
                     </Text>
                     {Number(item.is_recurring) === 1 ? (
                       <Text style={styles.recurringMeta}>
@@ -162,6 +163,10 @@ export default function PurchaseHistoryScreen() {
                     <Text style={styles.detailValue}>
                       {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'}
                     </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Categoria</Text>
+                    <Text style={styles.detailValue}>{item.category || 'Outros'}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Data</Text>

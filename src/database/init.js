@@ -62,6 +62,7 @@ export const initDatabase = () => {
         card_id INTEGER,
         payment_method TEXT DEFAULT 'card',
         description TEXT,
+        category TEXT DEFAULT 'Outros',
         total_amount REAL,
         installments INTEGER,
         is_recurring INTEGER DEFAULT 0,
@@ -87,6 +88,10 @@ export const initDatabase = () => {
 
         if (!columns.includes('payment_method')) {
           tx.executeSql(`ALTER TABLE purchases ADD COLUMN payment_method TEXT DEFAULT 'card'`);
+        }
+
+        if (!columns.includes('category')) {
+          tx.executeSql(`ALTER TABLE purchases ADD COLUMN category TEXT DEFAULT 'Outros'`);
         }
       }
     );

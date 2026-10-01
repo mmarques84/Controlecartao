@@ -55,6 +55,23 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       percentage: maxValue > 0 ? Math.max((item.value / maxValue) * 100, 7) : 0
     }));
   }, [monthPurchases]);
+  const spendingByCategory = useMemo(() => {
+    const grouped = monthPurchases.reduce<Record<string, number>>((acc, item) => {
+      const label = item.category || 'Outros';
+      acc[label] = (acc[label] || 0) + Number(item.total_amount || 0);
+      return acc;
+    }, {});
+
+    const entries = Object.entries(grouped)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+    const maxValue = entries.reduce((max, item) => Math.max(max, item.value), 0);
+
+    return entries.map((item) => ({
+      ...item,
+      percentage: maxValue > 0 ? Math.max((item.value / maxValue) * 100, 7) : 0
+    }));
+  }, [monthPurchases]);
 
   async function loadData() {
     const [user, cardList, purchaseList, installmentList] = await Promise.all([
@@ -190,6 +207,37 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             ))
           )}
 
+          <View style={styles.categoryDivider}>
+            <Text style={styles.summaryKicker}>Para onde foi</Text>
+            <Text style={styles.summaryTitle}>Gastos por categoria</Text>
+          </View>
+
+          {spendingByCategory.length === 0 ? (
+            <Text style={styles.emptyDescription}>Sem categorias ainda.</Text>
+          ) : (
+            spendingByCategory.map((item, index) => (
+              <View key={item.label} style={styles.chartRow}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartLabel}>{item.label}</Text>
+                  <Text style={styles.chartValue}>
+                    {item.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </Text>
+                </View>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${item.percentage}%`,
+                        backgroundColor: chartColors[(index + 2) % chartColors.length]
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+            ))
+          )}
+
           <View style={styles.invoiceMiniRow}>
             <Text style={styles.invoiceMiniText}>
               Fatura atual:{' '}
@@ -264,7 +312,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.purchaseTitle}>{item.description}</Text>
                   <Text style={styles.purchaseCategory}>
                     {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'} .{' '}
-                    {item.payment_method === 'pix' ? 'A vista' : `${item.installments}x`} . {item.purchase_date}
+                    {item.category || 'Outros'} . {item.payment_method === 'pix' ? 'A vista' : `${item.installments}x`} . {item.purchase_date}
                   </Text>
                   {Number(item.is_recurring) === 1 ? (
                     <Text style={styles.purchaseRecurring}>
@@ -494,6 +542,13 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     marginTop: 2,
     gap: 4
+  },
+  categoryDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEF1F7',
+    paddingTop: 16,
+    marginTop: 4,
+    marginBottom: 14
   },
   invoiceMiniText: {
     color: '#66708A',

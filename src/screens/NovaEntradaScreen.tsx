@@ -19,6 +19,18 @@ import { createPurchase } from '../database/purchaseService';
 import { PaymentMethod, transcribeTransaction } from '../services/transactionTranscription';
 
 const RECURRING_OPTIONS = ['Vivo', 'Claro', 'Luz', 'Academia', 'Seguro'];
+const CATEGORY_OPTIONS = [
+  'Mercado',
+  'Farmacia',
+  'Transporte',
+  'Alimentacao',
+  'Casa',
+  'Saude',
+  'Educacao',
+  'Compras',
+  'Assinaturas',
+  'Outros'
+];
 
 type CardItem = {
   id: number;
@@ -78,6 +90,7 @@ export default function NovaEntradaScreen({ navigation }: any) {
   const recognitionRef = useRef<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const [descricao, setDescricao] = useState('');
+  const [categoria, setCategoria] = useState('Outros');
   const [valor, setValor] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -166,6 +179,10 @@ export default function NovaEntradaScreen({ navigation }: any) {
 
     if (result.description) {
       setDescricao(result.description);
+    }
+
+    if (result.category) {
+      setCategoria(result.category);
     }
 
     if (result.amount) {
@@ -270,6 +287,7 @@ export default function NovaEntradaScreen({ navigation }: any) {
       cardId: paymentMethod === 'card' ? selectedCardId : null,
       paymentMethod,
       description: descricao.trim(),
+      category: categoria,
       totalAmount: parsedValue,
       installments: paymentMethod === 'pix' ? 1 : parsedInstallments,
       isRecurring: recorrente,
@@ -283,6 +301,7 @@ export default function NovaEntradaScreen({ navigation }: any) {
 
       setDescricao('');
       setValor('');
+      setCategoria('Outros');
       setPurchaseDate('');
       setTranscricao('');
       setTranscriptionNotice('');
@@ -463,6 +482,24 @@ export default function NovaEntradaScreen({ navigation }: any) {
               setShowCards(false);
             }}
           />
+
+          <Text style={styles.label}>Categoria</Text>
+          <View style={styles.chipsRow}>
+            {CATEGORY_OPTIONS.map((option) => {
+              const active = categoria === option;
+
+              return (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setCategoria(option)}
+                  activeOpacity={0.9}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{option}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           <Text style={styles.label}>Data da compra</Text>
           <TouchableOpacity

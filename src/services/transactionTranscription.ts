@@ -7,6 +7,7 @@ export type PaymentMethod = 'card' | 'pix';
 
 type TranscriptionResult = {
   description?: string;
+  category?: string;
   amount?: number;
   installments?: number;
   paymentMethod: PaymentMethod;
@@ -51,6 +52,45 @@ const DESCRIPTION_KEYWORDS = [
   'luz',
   'academia',
   'seguro'
+];
+
+const CATEGORY_RULES = [
+  {
+    label: 'Mercado',
+    keywords: ['mercado', 'supermercado', 'atacadao', 'assai', 'carrefour', 'extra', 'comida']
+  },
+  {
+    label: 'Farmacia',
+    keywords: ['farmacia', 'farmacia', 'remedio', 'drogaria', 'raia', 'drogasil', 'pharmacy', 'pharmace']
+  },
+  {
+    label: 'Transporte',
+    keywords: ['uber', '99', 'taxi', 'gasolina', 'combustivel', 'combustivel', 'posto', 'onibus', 'metro']
+  },
+  {
+    label: 'Alimentacao',
+    keywords: ['restaurante', 'lanche', 'ifood', 'pizza', 'hamburguer', 'bebida', 'bar', 'padaria']
+  },
+  {
+    label: 'Casa',
+    keywords: ['luz', 'agua', 'internet', 'aluguel', 'condominio', 'casa', 'energia']
+  },
+  {
+    label: 'Saude',
+    keywords: ['medico', 'consulta', 'exame', 'dentista', 'academia', 'seguro']
+  },
+  {
+    label: 'Educacao',
+    keywords: ['curso', 'faculdade', 'escola', 'livro', 'aula']
+  },
+  {
+    label: 'Compras',
+    keywords: ['roupa', 'sapato', 'tenis', 'loja', 'shopping', 'presente']
+  },
+  {
+    label: 'Assinaturas',
+    keywords: ['netflix', 'spotify', 'amazon', 'prime', 'assinatura', 'mensalidade']
+  }
 ];
 
 const MONTHS: Record<string, number> = {
@@ -214,6 +254,15 @@ function parseDescription(text: string) {
   return cleaned ? toTitle(cleaned) : undefined;
 }
 
+function parseCategory(text: string) {
+  const normalizedText = normalize(text);
+  const match = CATEGORY_RULES.find((rule) => (
+    rule.keywords.some((keyword) => normalizedText.includes(normalize(keyword)))
+  ));
+
+  return match?.label ?? 'Outros';
+}
+
 export function transcribeTransaction(text: string, cards: CardItem[]): TranscriptionResult {
   const paymentMethod: PaymentMethod = normalize(text).includes('pix') ? 'pix' : 'card';
   const amount = parseAmount(text);
@@ -236,6 +285,7 @@ export function transcribeTransaction(text: string, cards: CardItem[]): Transcri
 
   return {
     description: parseDescription(text),
+    category: parseCategory(text),
     amount,
     installments,
     paymentMethod,

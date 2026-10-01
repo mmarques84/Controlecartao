@@ -88,6 +88,7 @@ export const createPurchase = ({
   cardId,
   paymentMethod = 'card',
   description,
+  category = 'Outros',
   totalAmount,
   installments,
   isRecurring = false,
@@ -118,6 +119,7 @@ export const createPurchase = ({
         card_id: paymentMethod === 'pix' ? null : cardId,
         payment_method: paymentMethod,
         description,
+        category,
         total_amount: totalAmount,
         installments: paymentMethod === 'pix' ? 1 : installments,
         is_recurring: isRecurring ? 1 : 0,
@@ -161,13 +163,14 @@ export const createPurchase = ({
           db.transaction((tx) => {
             tx.executeSql(
               `INSERT INTO purchases
-                (user_id, card_id, payment_method, description, total_amount, installments, is_recurring, recurring_label, purchase_date, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+                (user_id, card_id, payment_method, description, category, total_amount, installments, is_recurring, recurring_label, purchase_date, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
               [
                 user.id,
                 null,
                 'pix',
                 description,
+                category,
                 totalAmount,
                 1,
                 isRecurring ? 1 : 0,
@@ -200,13 +203,14 @@ export const createPurchase = ({
 
               tx.executeSql(
                 `INSERT INTO purchases
-                  (user_id, card_id, payment_method, description, total_amount, installments, is_recurring, recurring_label, purchase_date, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+                  (user_id, card_id, payment_method, description, category, total_amount, installments, is_recurring, recurring_label, purchase_date, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
                 [
                   user.id,
                   cardId,
                   'card',
                   description,
+                  category,
                   totalAmount,
                   installments,
                   isRecurring ? 1 : 0,
@@ -285,6 +289,7 @@ export const getRecentPurchases = () => {
             `SELECT
                p.id,
                p.description,
+               p.category,
                p.total_amount,
                p.installments,
                p.payment_method,
