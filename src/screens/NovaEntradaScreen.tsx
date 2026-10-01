@@ -31,6 +31,11 @@ const CATEGORY_OPTIONS = [
   'Assinaturas',
   'Outros'
 ];
+const AI_EXAMPLES = [
+  'Mercado 120 reais no Itau hoje',
+  'Farmacia 50 reais no Nubank ontem',
+  'Uber 32 reais no Pix dia 29'
+];
 
 type CardItem = {
   id: number;
@@ -393,6 +398,23 @@ export default function NovaEntradaScreen({ navigation }: any) {
           {transcriptionNotice ? (
             <Text style={styles.aiNotice}>{transcriptionNotice}</Text>
           ) : null}
+
+          <Text style={styles.microLabel}>Testes rapidos</Text>
+          <View style={styles.exampleRow}>
+            {AI_EXAMPLES.map((example) => (
+              <TouchableOpacity
+                key={example}
+                style={styles.exampleChip}
+                onPress={() => {
+                  setTranscricao(example);
+                  aplicarTranscricao(example);
+                }}
+                activeOpacity={0.9}
+              >
+                <Text style={styles.exampleChipText}>{example}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <Text style={styles.label}>Forma de pagamento</Text>
           <View style={styles.paymentTabs}>
@@ -789,6 +811,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 14
+  },
+  microLabel: {
+    color: '#7B8499',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8
+  },
+  exampleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16
+  },
+  exampleChip: {
+    backgroundColor: '#F9FAFD',
+    borderWidth: 1,
+    borderColor: '#E3E7F0',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 9
+  },
+  exampleChipText: {
+    color: '#4F5A73',
+    fontSize: 12,
+    fontWeight: '700'
   },
   paymentTabs: {
     flexDirection: 'row',

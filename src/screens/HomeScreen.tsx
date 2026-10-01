@@ -40,6 +40,11 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const paidCount = installments.filter((item) => Number(item.is_paid) === 1).length;
   const plannedLimit = cards.reduce((sum, item) => sum + Number(item.limit_amount || 0), 0);
   const availableLimit = plannedLimit - total;
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const dayOfMonth = now.getDate();
+  const daysLeft = Math.max(daysInMonth - dayOfMonth, 0);
+  const dailyAverage = dayOfMonth > 0 ? total / dayOfMonth : total;
+  const limitUsage = plannedLimit > 0 ? Math.min((total / plannedLimit) * 100, 100) : 0;
   const spendingByCard = useMemo(() => {
     const grouped = monthPurchases.reduce<Record<string, number>>((acc, item) => {
       const label = item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao';
@@ -74,6 +79,34 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       percentage: maxValue > 0 ? Math.max((item.value / maxValue) * 100, 7) : 0
     }));
   }, [monthPurchases]);
+  const topCard = spendingByCard[0];
+  const topCategory = spendingByCategory[0];
+  const healthTone =
+    plannedLimit === 0 ? 'neutral' : limitUsage >= 85 ? 'danger' : limitUsage >= 60 ? 'warning' : 'good';
+  const healthLabel =
+    plannedLimit === 0
+      ? 'Configure seu limite'
+      : limitUsage >= 85
+        ? 'Atencao ao limite'
+        : limitUsage >= 60
+          ? 'Ritmo moderado'
+          : 'Fatura saudavel';
+  const smartInsight =
+    cards.length === 0
+      ? 'Cadastre seu primeiro cartao para o app calcular limite livre e melhor dia de compra.'
+      : monthPurchases.length === 0
+        ? 'Lance a primeira compra do mes e o painel comeca a aprender seu padrao.'
+        : topCategory
+          ? `${topCategory.label} lidera seus gastos do mes. Vale conferir se esta dentro do planejado.`
+          : 'Seu resumo esta pronto para acompanhar o mes.';
+  const nextBestAction =
+    cards.length === 0
+      ? { title: 'Cadastrar cartao', route: 'Cartao' }
+      : { title: 'Registrar compra', route: 'NovaEntrada' };
+
+  function formatMoney(value: number) {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
 
   async function loadData() {
     const [user, cardList, purchaseList, installmentList] = await Promise.all([
@@ -157,8 +190,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.heroGlowOne} />
         <View style={styles.heroGlowTwo} />
 
-        <Text style={styles.brand}>ControleCartao</Text>
-        <Text style={styles.heroTitle}>Cartao pessoal, compras e fatura em um lugar so</Text>
+        <View style={styles.heroTopRow}>
+          <Text style={styles.brand}>ControleCartao</Text>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Ao vivo</Text>
+          </View>
+        </View>
+        <Text style={styles.heroTitle}>Seu cockpit financeiro</Text>
         <Text style={styles.heroSubtitle}>
           {userEmail ? `Sessao ativa: ${userEmail}` : 'Organize seus gastos em um fluxo simples.'}
         </Text>
@@ -167,39 +206,103 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View>
             <Text style={styles.amountLabel}>Fatura atual</Text>
             <Text style={styles.amountValue}>
-              {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {formatMoney(total)}
             </Text>
           </View>
 
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => navigation.navigate('NovaEntrada')}
+            onPress={() => navigation.navigate(nextBestAction.route)}
             activeOpacity={0.9}
           >
-            <Text style={styles.primaryButtonText}>Nova compra</Text>
+            <Text style={styles.primaryButtonText}>{nextBestAction.title}</Text>
           </TouchableOpacity>
         </View>
 
       </View>
 
+        <View style={styles.aiCard}>
+          <View style={styles.aiHeader}>
+            <View>
+              <Text style={styles.aiKicker}>Assistente</Text>
+              <Text style={styles.aiTitle}>Leitura rapida do mes</Text>
+            </View>
+            <View
+              style={[
+                styles.healthPill,
+                healthTone === 'good' && styles.healthGood,
+                healthTone === 'warning' && styles.healthWarning,
+                healthTone === 'danger' && styles.healthDanger
+              ]}
+            >
+              <Text
+                style={[
+                  styles.healthText,
+                  healthTone === 'good' && styles.healthGoodText,
+                  healthTone === 'warning' && styles.healthWarningText,
+                  healthTone === 'danger' && styles.healthDangerText
+                ]}
+              >
+                {healthLabel}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.aiInsight}>{smartInsight}</Text>
+
+          <View style={styles.progressBlock}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Uso do limite</Text>
+              <Text style={styles.progressValue}>{Math.round(limitUsage)}%</Text>
+            </View>
+            <View style={styles.limitTrack}>
+              <View
+                style={[
+                  styles.limitFill,
+                  {
+                    width: `${limitUsage}%`,
+                    backgroundColor:
+                      healthTone === 'danger' ? '#D9544D' : healthTone === 'warning' ? '#D06B2D' : '#13B886'
+                  }
+                ]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.signalGrid}>
+            <View style={styles.signalItem}>
+              <Text style={styles.signalValue}>{formatMoney(dailyAverage)}</Text>
+              <Text style={styles.signalLabel}>Media por dia</Text>
+            </View>
+            <View style={styles.signalItem}>
+              <Text style={styles.signalValue}>{daysLeft}</Text>
+              <Text style={styles.signalLabel}>Dias restantes</Text>
+            </View>
+            <View style={styles.signalItem}>
+              <Text style={styles.signalValue} numberOfLines={1}>{topCard?.label || 'Sem dados'}</Text>
+              <Text style={styles.signalLabel}>Mais usado</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.metricsRow}>
         <View style={styles.metricCard}>
           <Text style={styles.metricMoney}>
-            {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            {formatMoney(total)}
           </Text>
           <Text style={styles.metricLabel}>Gasto do mes</Text>
         </View>
 
         <View style={styles.metricCard}>
           <Text style={styles.metricMoney}>
-            {plannedLimit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            {formatMoney(plannedLimit)}
           </Text>
           <Text style={styles.metricLabel}>Limite planejado</Text>
         </View>
 
         <View style={styles.metricCard}>
           <Text style={styles.metricMoney}>
-            {availableLimit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            {formatMoney(availableLimit)}
           </Text>
           <Text style={styles.metricLabel}>Limite livre</Text>
         </View>
@@ -212,7 +315,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Text style={styles.summaryTitle}>Gastos do mes</Text>
             </View>
             <Text style={styles.summaryTotal}>
-              {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {formatMoney(total)}
             </Text>
           </View>
 
@@ -224,7 +327,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartLabel}>{item.label}</Text>
                   <Text style={styles.chartValue}>
-                    {item.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    {formatMoney(item.value)}
                   </Text>
                 </View>
                 <View style={styles.barTrack}>
@@ -255,7 +358,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartLabel}>{item.label}</Text>
                   <Text style={styles.chartValue}>
-                    {item.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    {formatMoney(item.value)}
                   </Text>
                 </View>
                 <View style={styles.barTrack}>
@@ -275,8 +378,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
           <View style={styles.invoiceMiniRow}>
             <Text style={styles.invoiceMiniText}>
-              Fatura atual:{' '}
-              {invoiceTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              Fatura atual: {formatMoney(invoiceTotal)}
             </Text>
             <Text style={styles.invoiceMiniText}>
               {paidCount} pagas . {pendingCount} pendentes
@@ -287,6 +389,23 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <Text style={styles.sectionTitle}>Acessos rapidos</Text>
 
         <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.voiceCard}
+          onPress={() => navigation.navigate('NovaEntrada')}
+          activeOpacity={0.9}
+        >
+          <View style={styles.voiceIcon}>
+            <Text style={styles.voiceIconText}>IA</Text>
+          </View>
+          <View style={styles.voiceCopy}>
+            <Text style={styles.voiceTitle}>Lancar falando</Text>
+            <Text style={styles.voiceDescription}>
+              Diga algo como: mercado 100 reais no Itau ontem.
+            </Text>
+          </View>
+          <Text style={styles.voiceArrow}>Abrir</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.actionCard, styles.actionCardLarge]}
           onPress={() => navigation.navigate('NovaEntrada')}
@@ -333,10 +452,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
         {purchases.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Nenhuma compra cadastrada ainda</Text>
+            <Text style={styles.emptyTitle}>Comece com uma compra real</Text>
             <Text style={styles.emptyDescription}>
-              Cadastre uma compra nova para alimentar seu historico de verdade.
+              O app fica mais inteligente quando tem historico. Cadastre mercado, farmacia ou uma conta fixa.
             </Text>
+            <TouchableOpacity
+              style={styles.emptyAction}
+              onPress={() => navigation.navigate('NovaEntrada')}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.emptyActionText}>Registrar primeira compra</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           purchases.slice(0, 5).map((item) => (
@@ -496,13 +622,41 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: '#E8F7F0'
   },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12
+  },
   brand: {
     color: '#5E6A85',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: 12
+    textTransform: 'uppercase'
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F1FBF6',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#BCE9CE'
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: '#13B886'
+  },
+  liveText: {
+    color: '#1E7F52',
+    fontSize: 12,
+    fontWeight: '800'
   },
   heroTitle: {
     color: '#141A2E',
@@ -541,6 +695,122 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
+    fontWeight: '700'
+  },
+  aiCard: {
+    backgroundColor: '#101727',
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#25304A',
+    boxShadow: '0 10px 28px rgba(16, 23, 39, 0.16)'
+  },
+  aiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 14
+  },
+  aiKicker: {
+    color: '#9AA7C2',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 5
+  },
+  aiTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800'
+  },
+  healthPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: '#EEF2FF'
+  },
+  healthGood: {
+    backgroundColor: '#DDF8EA'
+  },
+  healthWarning: {
+    backgroundColor: '#FFF3E8'
+  },
+  healthDanger: {
+    backgroundColor: '#FFE3E0'
+  },
+  healthText: {
+    color: '#2F5BFF',
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  healthGoodText: {
+    color: '#1E7F52'
+  },
+  healthWarningText: {
+    color: '#B85B1D'
+  },
+  healthDangerText: {
+    color: '#B42318'
+  },
+  aiInsight: {
+    color: '#D8DEEC',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 16
+  },
+  progressBlock: {
+    gap: 8,
+    marginBottom: 14
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  progressLabel: {
+    color: '#9AA7C2',
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  progressValue: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  limitTrack: {
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: '#26324A',
+    overflow: 'hidden'
+  },
+  limitFill: {
+    height: '100%',
+    borderRadius: 999
+  },
+  signalGrid: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  signalItem: {
+    flex: 1,
+    backgroundColor: '#182136',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#2A3550'
+  },
+  signalValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 5
+  },
+  signalLabel: {
+    color: '#9AA7C2',
+    fontSize: 11,
     fontWeight: '700'
   },
   metricsRow: {
@@ -669,6 +939,47 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 24
   },
+  voiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#141A2E',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#25304A'
+  },
+  voiceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DDE7FF'
+  },
+  voiceIconText: {
+    color: '#2F5BFF',
+    fontWeight: '900'
+  },
+  voiceCopy: {
+    flex: 1
+  },
+  voiceTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4
+  },
+  voiceDescription: {
+    color: '#CBD2E3',
+    fontSize: 13,
+    lineHeight: 18
+  },
+  voiceArrow: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13
+  },
   actionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
@@ -724,6 +1035,18 @@ const styles = StyleSheet.create({
   emptyDescription: {
     color: '#6F7990',
     lineHeight: 20
+  },
+  emptyAction: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#141A2E',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginTop: 14
+  },
+  emptyActionText: {
+    color: '#FFFFFF',
+    fontWeight: '800'
   },
   purchaseCard: {
     flexDirection: 'row',
