@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AppBottomNav from '../components/AppBottomNav';
@@ -21,14 +21,42 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [installments, setInstallments] = useState<any[]>([]);
 
-  const total = installments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const chartColors = ['#2F5BFF', '#13B886', '#EC7000', '#8A05BE', '#F04438'];
+  const monthPurchases = purchases.filter((item) => {
+    const purchaseDate = String(item.purchase_date || '');
+    return (
+      Number(purchaseDate.slice(5, 7)) === currentMonth &&
+      Number(purchaseDate.slice(0, 4)) === currentYear
+    );
+  });
+  const total = monthPurchases.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+  const invoiceTotal = installments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const pendingCount = installments.filter((item) => !item.is_paid).length;
   const paidCount = installments.filter((item) => Number(item.is_paid) === 1).length;
   const plannedLimit = cards.reduce((sum, item) => sum + Number(item.limit_amount || 0), 0);
   const availableLimit = plannedLimit - total;
+  const spendingByCard = useMemo(() => {
+    const grouped = monthPurchases.reduce<Record<string, number>>((acc, item) => {
+      const label = item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao';
+      acc[label] = (acc[label] || 0) + Number(item.total_amount || 0);
+      return acc;
+    }, {});
+
+    const entries = Object.entries(grouped)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+    const maxValue = entries.reduce((max, item) => Math.max(max, item.value), 0);
+
+    return entries.map((item) => ({
+      ...item,
+      percentage: maxValue > 0 ? Math.max((item.value / maxValue) * 100, 7) : 0
+    }));
+  }, [monthPurchases]);
 
   async function loadData() {
-    const now = new Date();
     const [user, cardList, purchaseList, installmentList] = await Promise.all([
       getCurrentUser(),
       getCards(),
@@ -107,7 +135,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.metricMoney}>
             {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </Text>
-          <Text style={styles.metricLabel}>Valor gasto</Text>
+          <Text style={styles.metricLabel}>Gasto do mes</Text>
         </View>
 
         <View style={styles.metricCard}>
@@ -124,6 +152,54 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.metricLabel}>Limite livre</Text>
         </View>
       </View>
+
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <View>
+              <Text style={styles.summaryKicker}>Resumo por cartao</Text>
+              <Text style={styles.summaryTitle}>Gastos do mes</Text>
+            </View>
+            <Text style={styles.summaryTotal}>
+              {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </Text>
+          </View>
+
+          {spendingByCard.length === 0 ? (
+            <Text style={styles.emptyDescription}>Cadastre uma compra para ver o grafico.</Text>
+          ) : (
+            spendingByCard.map((item, index) => (
+              <View key={item.label} style={styles.chartRow}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartLabel}>{item.label}</Text>
+                  <Text style={styles.chartValue}>
+                    {item.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </Text>
+                </View>
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: `${item.percentage}%`,
+                        backgroundColor: chartColors[index % chartColors.length]
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+            ))
+          )}
+
+          <View style={styles.invoiceMiniRow}>
+            <Text style={styles.invoiceMiniText}>
+              Fatura atual:{' '}
+              {invoiceTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </Text>
+            <Text style={styles.invoiceMiniText}>
+              {paidCount} pagas . {pendingCount} pendentes
+            </Text>
+          </View>
+        </View>
 
         <Text style={styles.sectionTitle}>Acessos rapidos</Text>
 
@@ -346,6 +422,83 @@ const styles = StyleSheet.create({
   metricLabel: {
     color: '#737C92',
     fontSize: 13
+  },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E8EBF4',
+    marginBottom: 22
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 14,
+    marginBottom: 18
+  },
+  summaryKicker: {
+    color: '#7080A0',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6
+  },
+  summaryTitle: {
+    color: '#141A2E',
+    fontSize: 20,
+    fontWeight: '800'
+  },
+  summaryTotal: {
+    color: '#141A2E',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'right'
+  },
+  chartRow: {
+    marginBottom: 14
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8
+  },
+  chartLabel: {
+    color: '#141A2E',
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1
+  },
+  chartValue: {
+    color: '#4C5670',
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  barTrack: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#EEF2FF',
+    overflow: 'hidden'
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 999
+  },
+  invoiceMiniRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEF1F7',
+    paddingTop: 14,
+    marginTop: 2,
+    gap: 4
+  },
+  invoiceMiniText: {
+    color: '#66708A',
+    fontSize: 13,
+    fontWeight: '700'
   },
   sectionTitle: {
     color: '#141A2E',
