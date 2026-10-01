@@ -7,6 +7,7 @@ const { initSchema, isDatabaseConfigured, query } = require('./db');
 const app = express();
 const port = process.env.PORT || 3000;
 const distPath = path.join(__dirname, '..', 'dist');
+let databaseReady = isDatabaseConfigured;
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -38,11 +39,11 @@ function mapCard(row) {
 }
 
 app.get('/api/health', (_, res) => {
-  res.json({ ok: true, database: isDatabaseConfigured });
+  res.json({ ok: true, database: databaseReady });
 });
 
 app.use('/api', (req, res, next) => {
-  if (!isDatabaseConfigured) {
+  if (!databaseReady) {
     res.status(503).json({ error: 'DATABASE_NOT_CONFIGURED' });
     return;
   }
@@ -300,11 +301,15 @@ app.use((_, res) => {
 Promise.resolve()
   .then(() => (isDatabaseConfigured ? initSchema() : null))
   .then(() => {
+    databaseReady = isDatabaseConfigured;
     app.listen(port, '0.0.0.0', () => {
       console.log(`ControleCartao listening on ${port}`);
     });
   })
   .catch((error) => {
     console.error('Failed to initialize database schema', error);
-    process.exit(1);
+    databaseReady = false;
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`ControleCartao listening on ${port} without database`);
+    });
   });
