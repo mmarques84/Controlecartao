@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,6 +52,8 @@ export default function CardScreen({ navigation }: any) {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CardItem | null>(null);
   const [editingCard, setEditingCard] = useState<CardItem | null>(null);
+  const [savingCard, setSavingCard] = useState(false);
+  const [removingCard, setRemovingCard] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
     title: string;
@@ -89,6 +92,10 @@ export default function CardScreen({ navigation }: any) {
   }, []);
 
   async function handleSave() {
+    if (savingCard) {
+      return;
+    }
+
     const finalCardName = editingCard
       ? cardVariant.trim()
       : [selectedBrand, cardVariant.trim()].filter(Boolean).join(' ');
@@ -99,6 +106,11 @@ export default function CardScreen({ navigation }: any) {
 
     if (!finalCardName || !limitAmount || !closingDay || !dueDay || !bestPurchaseDay) {
       setNotice({ type: 'error', text: 'Preencha todos os dados do cartao antes de salvar.' });
+      setFeedback({
+        type: 'error',
+        title: 'Faltam dados',
+        message: 'Preencha nome, limite, fechamento, vencimento e melhor dia de compra antes de salvar.'
+      });
       return;
     }
 
@@ -109,6 +121,11 @@ export default function CardScreen({ navigation }: any) {
       Number.isNaN(parsedBestPurchaseDay)
     ) {
       setNotice({ type: 'error', text: 'Confira os numeros informados no limite e nos dias.' });
+      setFeedback({
+        type: 'error',
+        title: 'Confira os numeros',
+        message: 'O limite e os dias precisam estar preenchidos com valores validos.'
+      });
       return;
     }
 
@@ -121,10 +138,18 @@ export default function CardScreen({ navigation }: any) {
       parsedBestPurchaseDay > 31
     ) {
       setNotice({ type: 'error', text: 'Use dias entre 1 e 31 para fechamento, vencimento e melhor compra.' });
+      setFeedback({
+        type: 'error',
+        title: 'Dia invalido',
+        message: 'Use dias entre 1 e 31 para fechamento, vencimento e melhor compra.'
+      });
       return;
     }
 
     try {
+      setSavingCard(true);
+      setNotice(null);
+
       if (editingCard) {
         await updateCard({
           cardId: editingCard.id,
@@ -156,8 +181,8 @@ export default function CardScreen({ navigation }: any) {
       setNotice(null);
       setFeedback({
         type: 'success',
-        title: editingCard ? 'Cartao atualizado' : 'Cartao cadastrado',
-        message: `${finalCardName} foi salvo no banco e ja pode ser usado nas compras.`
+        title: editingCard ? 'Alteracao salva' : 'Cartao cadastrado',
+        message: `${finalCardName} foi salvo com sucesso. Agora ele aparece na lista de cadastrados e ja pode ser usado nas compras.`
       });
     } catch (error) {
       console.log(error);
@@ -167,6 +192,8 @@ export default function CardScreen({ navigation }: any) {
         title: 'Nao salvou',
         message: 'Nao foi possivel salvar o cartao agora. Tente novamente em alguns segundos.'
       });
+    } finally {
+      setSavingCard(false);
     }
   }
 
@@ -196,13 +223,27 @@ export default function CardScreen({ navigation }: any) {
     }
 
     try {
+      setRemovingCard(true);
+      const removedCardName = pendingDelete.name;
       await deleteCard(pendingDelete.id);
-      setNotice({ type: 'success', text: `${pendingDelete.name} foi removido.` });
+      setNotice(null);
       setPendingDelete(null);
       await loadCards();
+      setFeedback({
+        type: 'success',
+        title: 'Cartao removido',
+        message: `${removedCardName} saiu da sua lista de cartoes.`
+      });
     } catch (error) {
       console.log(error);
       setNotice({ type: 'error', text: 'Nao foi possivel remover o cartao.' });
+      setFeedback({
+        type: 'error',
+        title: 'Nao removeu',
+        message: 'Nao foi possivel remover o cartao agora. Tente novamente em alguns segundos.'
+      });
+    } finally {
+      setRemovingCard(false);
     }
   }
 
@@ -335,8 +376,16 @@ export default function CardScreen({ navigation }: any) {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleSave} activeOpacity={0.9}>
-            <Text style={styles.buttonText}>{editingCard ? 'Salvar alteracoes' : 'Salvar cartao'}</Text>
+          <TouchableOpacity
+            style={[styles.button, savingCard && styles.buttonDisabled]}
+            onPress={handleSave}
+            activeOpacity={0.9}
+            disabled={savingCard}
+          >
+            {savingCard ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+            <Text style={styles.buttonText}>
+              {savingCard ? 'Salvando...' : editingCard ? 'Salvar alteracoes' : 'Salvar cartao'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -381,6 +430,7 @@ export default function CardScreen({ navigation }: any) {
           message={pendingDelete ? `Isso tambem remove compras ligadas ao ${pendingDelete.name}.` : ''}
           onCancel={() => setPendingDelete(null)}
           onConfirm={confirmRemove}
+          loading={removingCard}
         />
 
         <FeedbackSwal
@@ -388,7 +438,7 @@ export default function CardScreen({ navigation }: any) {
           type={feedback?.type}
           title={feedback?.title ?? ''}
           message={feedback?.message ?? ''}
-          buttonText="Continuar"
+          buttonText="Entendi"
           onClose={() => setFeedback(null)}
         />
       </ScrollView>
@@ -594,7 +644,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 15,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 18
+  },
+  buttonDisabled: {
+    opacity: 0.78
   },
   buttonText: {
     color: '#FFFFFF',

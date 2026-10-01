@@ -25,7 +25,7 @@ export default function FeedbackSwal({
         <View style={styles.card}>
           <View style={[styles.iconWrap, success ? styles.iconSuccess : styles.iconError]}>
             <Text style={[styles.iconText, success ? styles.iconSuccessText : styles.iconErrorText]}>
-              {success ? '✓' : '!'}
+              {success ? 'OK' : '!'}
             </Text>
           </View>
 
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFD4D0'
   },
   iconText: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '900',
     lineHeight: 32
   },

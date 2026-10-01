@@ -1,4 +1,4 @@
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type ConfirmSwalProps = {
   visible: boolean;
@@ -7,6 +7,7 @@ type ConfirmSwalProps = {
   confirmText?: string;
   cancelText?: string;
   dangerLabel?: string;
+  loading?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -18,6 +19,7 @@ export default function ConfirmSwal({
   confirmText = 'Remover',
   cancelText = 'Cancelar',
   dangerLabel = 'Acao permanente',
+  loading = false,
   onCancel,
   onConfirm
 }: ConfirmSwalProps) {
@@ -34,12 +36,23 @@ export default function ConfirmSwal({
           <Text style={styles.message}>{message}</Text>
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onCancel} activeOpacity={0.9}>
+            <TouchableOpacity
+              style={[styles.cancelButton, loading && styles.actionDisabled]}
+              onPress={onCancel}
+              activeOpacity={0.9}
+              disabled={loading}
+            >
               <Text style={styles.cancelText}>{cancelText}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.confirmButton} onPress={onConfirm} activeOpacity={0.9}>
-              <Text style={styles.confirmText}>{confirmText}</Text>
+            <TouchableOpacity
+              style={[styles.confirmButton, loading && styles.actionDisabled]}
+              onPress={onConfirm}
+              activeOpacity={0.9}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+              <Text style={styles.confirmText}>{loading ? 'Removendo...' : confirmText}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -127,7 +140,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#D9544D',
     borderRadius: 16,
     paddingVertical: 14,
-    alignItems: 'center'
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8
+  },
+  actionDisabled: {
+    opacity: 0.7
   },
   confirmText: {
     color: '#FFFFFF',
