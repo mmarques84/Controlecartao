@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { db } from './db';
 import { getCurrentUser } from './authService';
+import { apiRequest, canUseApi } from './apiClient';
 import { nextWebId, readWebStore, writeWebStore } from './webStore';
 
 export const createCard = ({
@@ -10,6 +11,26 @@ export const createCard = ({
   dueDay,
   bestPurchaseDay
 }) => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return { error: 'NO_SESSION' };
+      }
+
+      return apiRequest('/cards', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user.id,
+          name,
+          limitAmount,
+          closingDay,
+          dueDay,
+          bestPurchaseDay
+        })
+      });
+    });
+  }
+
   if (Platform.OS === 'web') {
     return getCurrentUser().then((user) => {
       if (!user?.id) {
@@ -57,6 +78,16 @@ export const createCard = ({
 };
 
 export const getCards = () => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return [];
+      }
+
+      return apiRequest(`/cards?userId=${user.id}`).then((result) => result.cards ?? []);
+    });
+  }
+
   if (Platform.OS === 'web') {
     return getCurrentUser().then((user) => {
       if (!user?.id) {
@@ -95,6 +126,10 @@ export const getCards = () => {
 };
 
 export const deleteCard = (cardId) => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return apiRequest(`/cards/${cardId}`, { method: 'DELETE' });
+  }
+
   if (Platform.OS === 'web') {
     const store = readWebStore();
     const purchaseIds = store.purchases

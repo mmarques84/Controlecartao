@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
+import AppBottomNav from '../components/AppBottomNav';
+import ConfirmSwal from '../components/ConfirmSwal';
 import { getCards } from '../database/cardService';
 import { deletePurchase, getRecentPurchases } from '../database/purchaseService';
 
@@ -23,7 +25,7 @@ type CardItem = {
   name: string;
 };
 
-export default function PurchaseHistoryScreen() {
+export default function PurchaseHistoryScreen({ navigation }: any) {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [purchases, setPurchases] = useState<PurchaseItem[]>([]);
   const [search, setSearch] = useState('');
@@ -79,174 +81,151 @@ export default function PurchaseHistoryScreen() {
   const filterOptions = ['Todos', ...cards.map((card) => card.name), ...(hasPix ? ['Pix'] : [])];
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {notice ? (
-        <View style={notice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
-          <Text style={notice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
-            {notice.text}
-          </Text>
-        </View>
-      ) : null}
-
-      {pendingDelete ? (
-        <View style={styles.confirmCard}>
-          <View>
-            <Text style={styles.confirmTitle}>Remover esta compra?</Text>
-            <Text style={styles.confirmText}>
-              {pendingDelete.description} .{' '}
-              {Number(pendingDelete.total_amount).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-              })}
+    <View style={styles.root}>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {notice ? (
+          <View style={notice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
+            <Text style={notice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
+              {notice.text}
             </Text>
           </View>
-          <View style={styles.confirmActions}>
-            <TouchableOpacity style={styles.confirmCancel} onPress={() => setPendingDelete(null)}>
-              <Text style={styles.confirmCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmRemove} onPress={confirmRemovePurchase}>
-              <Text style={styles.confirmRemoveText}>Remover</Text>
-            </TouchableOpacity>
+        ) : null}
+
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>Compras</Text>
+          <Text style={styles.title}>Historico</Text>
+          <Text style={styles.subtitle}>{filteredPurchases.length} de {purchases.length} compra(s)</Text>
+        </View>
+
+        <View style={styles.filterCard}>
+          <TextInput
+            style={styles.input}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Buscar compra, cartao ou data"
+          />
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+            {filterOptions.map((option) => {
+              const active = option === selectedCard;
+
+              return (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setSelectedCard(option)}
+                  activeOpacity={0.9}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{option}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {filteredPurchases.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>Nenhuma compra encontrada</Text>
+            <Text style={styles.emptyDescription}>
+              Tente buscar outro termo ou trocar o filtro do cartao.
+            </Text>
           </View>
-        </View>
-      ) : null}
+        ) : (
+          <View style={styles.purchaseList}>
+            {filteredPurchases.map((item, index) => {
+              const expanded = expandedId === item.id;
 
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>Historico real</Text>
-        <Text style={styles.title}>Busca, filtros e detalhes das compras</Text>
-        <Text style={styles.subtitle}>
-          Aqui voce encontra tudo com mais calma, sem pesar a home.
-        </Text>
-      </View>
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.purchaseRow, index === filteredPurchases.length - 1 && styles.purchaseRowLast]}
+                  activeOpacity={0.95}
+                  onPress={() => setExpandedId((current) => (current === item.id ? null : item.id))}
+                >
+                  <View style={styles.purchaseTop}>
+                    <View style={styles.purchaseLeft}>
+                      <View style={styles.purchaseDot} />
+                      <View style={styles.purchaseInfo}>
+                        <Text style={styles.purchaseTitle} numberOfLines={1}>{item.description}</Text>
+                        <Text style={styles.purchaseMeta} numberOfLines={1}>
+                          {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'} . {item.category || 'Outros'} . {item.purchase_date}
+                        </Text>
+                      </View>
+                    </View>
 
-      <View style={styles.filterCard}>
-        <Text style={styles.label}>Pesquisar</Text>
-        <TextInput
-          style={styles.input}
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Ex: mercado, nubank, 2026-04"
+                    <Text style={styles.purchaseAmount}>
+                      {Number(item.total_amount).toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                      })}
+                    </Text>
+                  </View>
+
+                  {expanded ? (
+                    <View style={styles.detailBox}>
+                      <View style={styles.detailGrid}>
+                        <View style={styles.detailPill}>
+                          <Text style={styles.detailLabel}>Parcelas</Text>
+                          <Text style={styles.detailValue}>
+                            {item.payment_method === 'pix' ? 'A vista' : `${item.installments}x`}
+                          </Text>
+                        </View>
+                        <View style={styles.detailPill}>
+                          <Text style={styles.detailLabel}>Recorrente</Text>
+                          <Text style={styles.detailValue}>
+                            {Number(item.is_recurring) === 1 ? item.recurring_label || 'Sim' : 'Nao'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => setPendingDelete(item)}
+                        style={styles.removeButton}
+                        activeOpacity={0.9}
+                      >
+                        <Text style={styles.removeButtonText}>Remover compra</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        <ConfirmSwal
+          visible={Boolean(pendingDelete)}
+          title="Remover esta compra?"
+          message={
+            pendingDelete
+              ? `${pendingDelete.description} - ${Number(pendingDelete.total_amount || 0).toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                })}`
+              : ''
+          }
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmRemovePurchase}
         />
+      </ScrollView>
 
-        <Text style={styles.label}>Filtrar por cartao</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {filterOptions.map((option) => {
-            const active = option === selectedCard;
-
-            return (
-              <TouchableOpacity
-                key={option}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => setSelectedCard(option)}
-                activeOpacity={0.9}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{option}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        <Text style={styles.helperText}>{filteredPurchases.length} compra(s) encontrada(s)</Text>
-      </View>
-
-      {filteredPurchases.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Nenhuma compra encontrada</Text>
-          <Text style={styles.emptyDescription}>
-            Tente buscar outro termo ou trocar o filtro do cartao.
-          </Text>
-        </View>
-      ) : (
-        filteredPurchases.map((item) => {
-          const expanded = expandedId === item.id;
-
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.purchaseCard}
-              activeOpacity={0.95}
-              onPress={() => setExpandedId((current) => (current === item.id ? null : item.id))}
-            >
-              <View style={styles.purchaseTop}>
-                <View style={styles.purchaseLeft}>
-                  <View style={styles.purchaseDot} />
-                  <View>
-                    <Text style={styles.purchaseTitle}>{item.description}</Text>
-                    <Text style={styles.purchaseMeta}>
-                      {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'} . {item.category || 'Outros'} . {item.purchase_date}
-                    </Text>
-                    {Number(item.is_recurring) === 1 ? (
-                      <Text style={styles.recurringMeta}>
-                        Recorrente{item.recurring_label ? ` . ${item.recurring_label}` : ''}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                <Text style={styles.purchaseAmount}>
-                  {Number(item.total_amount).toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  })}
-                </Text>
-              </View>
-
-              {expanded ? (
-                <View style={styles.detailBox}>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Forma</Text>
-                    <Text style={styles.detailValue}>
-                      {item.payment_method === 'pix' ? 'Pix' : item.card_name || 'Sem cartao'}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Categoria</Text>
-                    <Text style={styles.detailValue}>{item.category || 'Outros'}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Data</Text>
-                    <Text style={styles.detailValue}>{item.purchase_date}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Parcelas</Text>
-                    <Text style={styles.detailValue}>
-                      {item.payment_method === 'pix' ? 'A vista' : `${item.installments}x`}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Recorrente</Text>
-                    <Text style={styles.detailValue}>
-                      {Number(item.is_recurring) === 1 ? item.recurring_label || 'Sim' : 'Nao'}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={() => setPendingDelete(item)}
-                    style={styles.removeButton}
-                    activeOpacity={0.9}
-                  >
-                    <Text style={styles.removeButtonText}>Remover compra</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <Text style={styles.expandHint}>Toque para ver detalhes</Text>
-              )}
-            </TouchableOpacity>
-          );
-        })
-      )}
-    </ScrollView>
+      <AppBottomNav navigation={navigation} current="Historico" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#F6F7FB'
+  },
   screen: {
     flex: 1,
     backgroundColor: '#F6F7FB'
   },
   content: {
     padding: 20,
-    paddingBottom: 32
+    paddingBottom: 116,
+    gap: 14
   },
   noticeSuccess: {
     backgroundColor: '#E9F8EF',
@@ -272,56 +251,12 @@ const styles = StyleSheet.create({
     color: '#D9544D',
     fontWeight: '800'
   },
-  confirmCard: {
-    backgroundColor: '#141A2E',
-    borderRadius: 22,
-    padding: 16,
-    marginBottom: 14,
-    gap: 14
-  },
-  confirmTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-    marginBottom: 4
-  },
-  confirmText: {
-    color: '#CBD2E3',
-    lineHeight: 20
-  },
-  confirmActions: {
-    flexDirection: 'row',
-    gap: 10
-  },
-  confirmCancel: {
-    flex: 1,
+  header: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center'
-  },
-  confirmCancelText: {
-    color: '#141A2E',
-    fontWeight: '800'
-  },
-  confirmRemove: {
-    flex: 1,
-    backgroundColor: '#FFE3E0',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center'
-  },
-  confirmRemoveText: {
-    color: '#B42318',
-    fontWeight: '800'
-  },
-  hero: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#E8EBF4',
-    marginBottom: 18
+    borderColor: '#E8EBF4'
   },
   eyebrow: {
     color: '#5E6A85',
@@ -329,14 +264,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1.1,
-    marginBottom: 10
+    marginBottom: 8
   },
   title: {
     color: '#141A2E',
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 31,
     fontWeight: '800',
-    marginBottom: 10
+    marginBottom: 6
   },
   subtitle: {
     color: '#6F7990',
@@ -345,11 +280,10 @@ const styles = StyleSheet.create({
   },
   filterCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#E8EBF4',
-    marginBottom: 18
+    borderColor: '#E8EBF4'
   },
   label: {
     color: '#4F5A73',
@@ -361,11 +295,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFD',
     borderWidth: 1,
     borderColor: '#E3E7F0',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     color: '#141A2E',
-    marginBottom: 14
+    marginBottom: 12
   },
   chipsRow: {
     gap: 10,
@@ -376,8 +310,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E7F0',
     borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10
+    paddingHorizontal: 13,
+    paddingVertical: 9
   },
   chipActive: {
     backgroundColor: '#141A2E',
@@ -389,11 +323,6 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#FFFFFF'
-  },
-  helperText: {
-    marginTop: 14,
-    color: '#7A839A',
-    fontSize: 13
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',
@@ -412,13 +341,21 @@ const styles = StyleSheet.create({
     color: '#6F7990',
     lineHeight: 20
   },
-  purchaseCard: {
+  purchaseList: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
     borderWidth: 1,
     borderColor: '#E8EBF4',
-    marginBottom: 12
+    borderRadius: 20,
+    overflow: 'hidden'
+  },
+  purchaseRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF1F7'
+  },
+  purchaseRowLast: {
+    borderBottomWidth: 0
   },
   purchaseTop: {
     flexDirection: 'row',
@@ -432,66 +369,61 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 12
   },
+  purchaseInfo: {
+    flex: 1
+  },
   purchaseDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 9,
+    height: 9,
+    borderRadius: 999,
     backgroundColor: '#89A6FF'
   },
   purchaseTitle: {
     color: '#141A2E',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 3
   },
   purchaseMeta: {
     color: '#778095',
-    fontSize: 13
-  },
-  recurringMeta: {
-    color: '#2F5BFF',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 4
+    fontSize: 12
   },
   purchaseAmount: {
     color: '#141A2E',
-    fontSize: 16,
-    fontWeight: '800'
-  },
-  expandHint: {
-    color: '#2F5BFF',
-    fontWeight: '700',
-    marginTop: 14,
-    fontSize: 13
+    fontSize: 14,
+    fontWeight: '900'
   },
   detailBox: {
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#EEF1F7',
-    paddingTop: 14,
+    marginTop: 12,
     gap: 10
   },
-  detailRow: {
+  detailGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
+    gap: 8
+  },
+  detailPill: {
+    flex: 1,
+    backgroundColor: '#F9FAFD',
+    borderRadius: 14,
+    padding: 10
   },
   detailLabel: {
     color: '#7A839A',
-    fontSize: 13
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 3
   },
   detailValue: {
     color: '#141A2E',
-    fontWeight: '700'
+    fontWeight: '800',
+    fontSize: 13
   },
   removeButton: {
     alignSelf: 'flex-start',
     backgroundColor: '#FFF1F0',
-    borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 6
+    paddingVertical: 9
   },
   removeButtonText: {
     color: '#D9544D',

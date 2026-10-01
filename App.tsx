@@ -121,17 +121,17 @@ export default function App() {
         <Stack.Screen
           name="Cartao"
           component={CardScreen}
-          options={{ title: 'Meu cartao' }}
+          options={{ title: 'Controle' }}
         />
         <Stack.Screen
           name="HistoricoFatura"
           component={InvoiceHistoryScreen}
-          options={{ title: 'Historico da fatura' }}
+          options={{ title: 'Relatorios' }}
         />
         <Stack.Screen
           name="HistoricoCompras"
           component={PurchaseHistoryScreen}
-          options={{ title: 'Historico real' }}
+          options={{ title: 'Historico' }}
         />
         <Stack.Screen
           name="Perfil"

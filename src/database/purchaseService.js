@@ -1,9 +1,21 @@
 import { Platform } from 'react-native';
 import { db } from './db';
 import { getCurrentUser } from './authService';
+import { apiRequest, canUseApi } from './apiClient';
 import { nextWebId, readWebStore, todayWebIso, writeWebStore } from './webStore';
 
 export const getInstallmentsByMonth = (month, year) => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return [];
+      }
+
+      return apiRequest(`/installments?userId=${user.id}&month=${month}&year=${year}`)
+        .then((result) => result.installments ?? []);
+    });
+  }
+
   if (Platform.OS === 'web') {
     return getCurrentUser().then((user) => {
       if (!user?.id) {
@@ -95,6 +107,30 @@ export const createPurchase = ({
   recurringLabel = null,
   purchaseDate
 }) => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return { error: 'NO_SESSION' };
+      }
+
+      return apiRequest('/purchases', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user.id,
+          cardId,
+          paymentMethod,
+          description,
+          category,
+          totalAmount,
+          installments,
+          isRecurring,
+          recurringLabel,
+          purchaseDate
+        })
+      });
+    });
+  }
+
   if (Platform.OS === 'web') {
     return getCurrentUser().then((user) => {
       if (!user?.id) {
@@ -255,6 +291,16 @@ export const createPurchase = ({
 };
 
 export const getRecentPurchases = () => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return [];
+      }
+
+      return apiRequest(`/purchases?userId=${user.id}`).then((result) => result.purchases ?? []);
+    });
+  }
+
   if (Platform.OS === 'web') {
     return getCurrentUser().then((user) => {
       if (!user?.id) {
@@ -312,6 +358,10 @@ export const getRecentPurchases = () => {
 };
 
 export const deletePurchase = (purchaseId) => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return apiRequest(`/purchases/${purchaseId}`, { method: 'DELETE' });
+  }
+
   if (Platform.OS === 'web') {
     const store = readWebStore();
     store.installments = store.installments.filter((installment) => installment.purchase_id !== purchaseId);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,6 +8,8 @@ import {
   View
 } from 'react-native';
 
+import AppBottomNav from '../components/AppBottomNav';
+import ConfirmSwal from '../components/ConfirmSwal';
 import { createCard, deleteCard, getCards } from '../database/cardService';
 
 type CardItem = {
@@ -21,14 +23,15 @@ type CardItem = {
 
 const CARD_BRANDS = ['Itau', 'Nubank', 'Caixa', 'Inter', 'Bradesco', 'Santander'];
 
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function formatCurrencyInput(value: string) {
   const digits = value.replace(/\D/g, '');
   const numberValue = Number(digits || '0') / 100;
 
-  return numberValue.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
+  return formatMoney(numberValue);
 }
 
 function parseCurrencyInput(value: string) {
@@ -36,36 +39,7 @@ function parseCurrencyInput(value: string) {
   return Number(digits || '0') / 100;
 }
 
-function getCardTheme(cardName: string) {
-  const normalized = cardName.trim().toLowerCase();
-
-  if (normalized.includes('itau')) {
-    return {
-      backgroundColor: '#FFF1E8',
-      borderColor: '#F7B58A',
-      accentColor: '#EC7000',
-      accentSoft: '#FFE2CF'
-    };
-  }
-
-  if (normalized.includes('nubank') || normalized.includes('nu ') || normalized === 'nu') {
-    return {
-      backgroundColor: '#F5EEFF',
-      borderColor: '#D4B8FF',
-      accentColor: '#8A05BE',
-      accentSoft: '#ECDDFF'
-    };
-  }
-
-  return {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8EBF4',
-    accentColor: '#2F5BFF',
-    accentSoft: '#EEF2FF'
-  };
-}
-
-export default function CardScreen() {
+export default function CardScreen({ navigation }: any) {
   const [selectedBrand, setSelectedBrand] = useState('Itau');
   const [cardVariant, setCardVariant] = useState('');
   const [limitAmount, setLimitAmount] = useState('');
@@ -75,6 +49,24 @@ export default function CardScreen() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CardItem | null>(null);
+
+  const totalLimit = useMemo(
+    () => cards.reduce((sum, card) => sum + Number(card.limit_amount || 0), 0),
+    [cards]
+  );
+
+  const nextDueCard = useMemo(() => {
+    if (cards.length === 0) {
+      return null;
+    }
+
+    const today = new Date().getDate();
+    return [...cards].sort((a, b) => {
+      const daysA = a.due_day >= today ? a.due_day - today : a.due_day + 31 - today;
+      const daysB = b.due_day >= today ? b.due_day - today : b.due_day + 31 - today;
+      return daysA - daysB;
+    })[0];
+  }, [cards]);
 
   async function loadCards() {
     try {
@@ -140,7 +132,7 @@ export default function CardScreen() {
       setBestPurchaseDay('');
 
       await loadCards();
-      setNotice({ type: 'success', text: `${finalCardName} foi cadastrado com sucesso.` });
+      setNotice({ type: 'success', text: `${finalCardName} foi cadastrado.` });
     } catch (error) {
       console.log(error);
       setNotice({ type: 'error', text: 'Nao foi possivel salvar o cartao.' });
@@ -164,469 +156,402 @@ export default function CardScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {notice ? (
-        <View style={notice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
-          <Text style={notice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
-            {notice.text}
-          </Text>
+    <View style={styles.root}>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Text style={styles.kicker}>Cartoes</Text>
+          <Text style={styles.title}>Cartoes e limites</Text>
         </View>
-      ) : null}
 
-      {pendingDelete ? (
-        <View style={styles.confirmCard}>
-          <View>
-            <Text style={styles.confirmTitle}>Remover cartao?</Text>
-            <Text style={styles.confirmText}>
-              Isso tambem remove compras ligadas ao {pendingDelete.name}.
+        {notice ? (
+          <View style={notice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
+            <Text style={notice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
+              {notice.text}
             </Text>
           </View>
-          <View style={styles.confirmActions}>
-            <TouchableOpacity style={styles.confirmCancel} onPress={() => setPendingDelete(null)}>
-              <Text style={styles.confirmCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmRemove} onPress={confirmRemove}>
-              <Text style={styles.confirmRemoveText}>Remover</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>Cadastro do cartao</Text>
-        <Text style={styles.title}>Guarde limite e a melhor data de compra</Text>
-        <Text style={styles.subtitle}>
-          Cadastre seu cartao para acompanhar melhor quando comprar e quanto ainda pode usar.
-        </Text>
-      </View>
+        <View style={styles.summaryPanel}>
+          <Text style={styles.summaryLabel}>Limite cadastrado</Text>
+          <Text style={styles.summaryValue}>{formatMoney(totalLimit)}</Text>
 
-      <View style={styles.formCard}>
-        <Text style={styles.sectionTitle}>Novo cartao</Text>
-
-        <Text style={styles.label}>Banco do cartao</Text>
-        <View style={styles.brandRow}>
-          {CARD_BRANDS.map((brand) => {
-            const active = selectedBrand === brand;
-            const theme = getCardTheme(brand);
-
-            return (
-              <TouchableOpacity
-                key={brand}
-                style={[
-                  styles.brandChip,
-                  active && {
-                    backgroundColor: theme.accentColor,
-                    borderColor: theme.accentColor
-                  }
-                ]}
-                onPress={() => setSelectedBrand(brand)}
-                activeOpacity={0.9}
-              >
-                <Text style={[styles.brandChipText, active && styles.brandChipTextActive]}>{brand}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <Text style={styles.label}>Nome complementar</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Azul, Platinum, Black"
-          value={cardVariant}
-          onChangeText={setCardVariant}
-        />
-
-        <View style={styles.previewCard}>
-          <Text style={styles.previewLabel}>Nome que sera salvo</Text>
-          <Text style={styles.previewValue}>
-            {[selectedBrand, cardVariant.trim()].filter(Boolean).join(' ')}
-          </Text>
-        </View>
-
-        <Text style={styles.label}>Limite</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="R$ 0,00"
-          keyboardType="numeric"
-          value={limitAmount}
-          onChangeText={(text) => setLimitAmount(formatCurrencyInput(text))}
-        />
-
-        <View style={styles.doubleRow}>
-          <View style={styles.doubleField}>
-            <Text style={styles.label}>Fechamento</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Dia"
-              keyboardType="numeric"
-              value={closingDay}
-              onChangeText={setClosingDay}
-            />
-          </View>
-
-          <View style={styles.doubleField}>
-            <Text style={styles.label}>Vencimento</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Dia"
-              keyboardType="numeric"
-              value={dueDay}
-              onChangeText={setDueDay}
-            />
-          </View>
-        </View>
-
-        <Text style={styles.label}>Melhor data de compra</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 16"
-          keyboardType="numeric"
-          value={bestPurchaseDay}
-          onChangeText={setBestPurchaseDay}
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleSave} activeOpacity={0.9}>
-          <Text style={styles.buttonText}>Salvar cartao</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.listHeader}>
-        <Text style={styles.sectionTitle}>Cartoes cadastrados</Text>
-        <Text style={styles.helperText}>{cards.length} item(ns)</Text>
-      </View>
-
-      {cards.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Nenhum cartao cadastrado ainda</Text>
-          <Text style={styles.emptyDescription}>
-            Assim que voce salvar um cartao, ele aparece aqui com limite e datas principais.
-          </Text>
-        </View>
-      ) : (
-        cards.map((card) => {
-          const theme = getCardTheme(card.name);
-
-          return (
-            <View
-              key={card.id}
-              style={[
-                styles.cardItem,
-                {
-                  backgroundColor: theme.backgroundColor,
-                  borderColor: theme.borderColor
-                }
-              ]}
-            >
-              <View style={styles.cardTopRow}>
-                <Text style={styles.cardName}>{card.name}</Text>
-                <Text style={[styles.cardLimit, { color: theme.accentColor }]}>
-                  {Number(card.limit_amount).toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.tagsRow}>
-                <View style={[styles.tag, { backgroundColor: theme.accentSoft }]}>
-                  <Text style={styles.tagText}>Fecha dia {card.closing_day}</Text>
-                </View>
-                <View style={[styles.tag, { backgroundColor: theme.accentSoft }]}>
-                  <Text style={styles.tagText}>Vence dia {card.due_day}</Text>
-                </View>
-                <View style={styles.tagHighlight}>
-                  <Text style={styles.tagHighlightText}>Melhor dia {card.best_purchase_day}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity onPress={() => setPendingDelete(card)} style={styles.removeButton}>
-                <Text style={styles.removeButtonText}>Remover cartao</Text>
-              </TouchableOpacity>
+          <View style={styles.summaryRow}>
+            <View>
+              <Text style={styles.miniValue}>{cards.length}</Text>
+              <Text style={styles.miniLabel}>Cartoes</Text>
             </View>
-          );
-        })
-      )}
-    </ScrollView>
+            <View style={styles.summaryDivider} />
+            <View style={styles.miniBlock}>
+              <Text style={styles.miniValue}>{nextDueCard ? `Dia ${nextDueCard.due_day}` : '-'}</Text>
+              <Text style={styles.miniLabel}>Proximo vencimento</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Novo cartao</Text>
+
+          <Text style={styles.label}>Banco</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRow}>
+            {CARD_BRANDS.map((brand) => {
+              const active = selectedBrand === brand;
+
+              return (
+                <TouchableOpacity
+                  key={brand}
+                  style={[styles.brandChip, active && styles.brandChipActive]}
+                  onPress={() => setSelectedBrand(brand)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.brandChipText, active && styles.brandChipTextActive]}>{brand}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={styles.label}>Complemento</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex: Platinum, Black"
+            value={cardVariant}
+            onChangeText={setCardVariant}
+          />
+
+          <Text style={styles.label}>Limite</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="R$ 0,00"
+            keyboardType="numeric"
+            value={limitAmount}
+            onChangeText={(text) => setLimitAmount(formatCurrencyInput(text))}
+          />
+
+          <View style={styles.tripleRow}>
+            <View style={styles.compactField}>
+              <Text style={styles.label}>Fecha</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Dia"
+                keyboardType="numeric"
+                value={closingDay}
+                onChangeText={setClosingDay}
+              />
+            </View>
+
+            <View style={styles.compactField}>
+              <Text style={styles.label}>Vence</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Dia"
+                keyboardType="numeric"
+                value={dueDay}
+                onChangeText={setDueDay}
+              />
+            </View>
+
+            <View style={styles.compactField}>
+              <Text style={styles.label}>Melhor</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Dia"
+                keyboardType="numeric"
+                value={bestPurchaseDay}
+                onChangeText={setBestPurchaseDay}
+              />
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.button} onPress={handleSave} activeOpacity={0.9}>
+            <Text style={styles.buttonText}>Salvar cartao</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Cadastrados</Text>
+          <Text style={styles.helperText}>{cards.length} item(ns)</Text>
+        </View>
+
+        {cards.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>Nenhum cartao ainda</Text>
+            <Text style={styles.emptyDescription}>Cadastre um cartao para liberar os calculos da Home e Relatorios.</Text>
+          </View>
+        ) : (
+          <View style={styles.cardList}>
+            {cards.map((card) => (
+              <View key={card.id} style={styles.cardItem}>
+                <View style={styles.cardTopRow}>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardName} numberOfLines={1}>{card.name}</Text>
+                    <Text style={styles.cardMeta}>
+                      Fecha {card.closing_day} . Vence {card.due_day} . Melhor {card.best_purchase_day}
+                    </Text>
+                  </View>
+                  <Text style={styles.cardLimit}>{formatMoney(Number(card.limit_amount || 0))}</Text>
+                </View>
+
+                <TouchableOpacity onPress={() => setPendingDelete(card)} style={styles.removeButton}>
+                  <Text style={styles.removeButtonText}>Remover</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <ConfirmSwal
+          visible={Boolean(pendingDelete)}
+          title="Remover cartao?"
+          message={pendingDelete ? `Isso tambem remove compras ligadas ao ${pendingDelete.name}.` : ''}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmRemove}
+        />
+      </ScrollView>
+
+      <AppBottomNav navigation={navigation} current="Controle" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#F7F8FA'
+  },
   screen: {
     flex: 1,
-    backgroundColor: '#F6F7FB'
+    backgroundColor: '#F7F8FA'
   },
   content: {
-    padding: 20,
-    paddingBottom: 32
+    padding: 24,
+    paddingBottom: 116,
+    gap: 18
+  },
+  header: {
+    gap: 4
+  },
+  kicker: {
+    color: '#6B7280',
+    fontSize: 14
+  },
+  title: {
+    color: '#111827',
+    fontSize: 30,
+    fontWeight: '800'
   },
   noticeSuccess: {
-    backgroundColor: '#E9F8EF',
+    backgroundColor: '#ECFDF3',
     borderWidth: 1,
-    borderColor: '#BCE9CE',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 14
+    borderColor: '#BBF7D0',
+    borderRadius: 16,
+    padding: 14
   },
   noticeError: {
-    backgroundColor: '#FFF1F0',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#FFD4D0',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 14
+    borderColor: '#FECACA',
+    borderRadius: 16,
+    padding: 14
   },
   noticeSuccessText: {
-    color: '#1E7F52',
+    color: '#166534',
     fontWeight: '800'
   },
   noticeErrorText: {
-    color: '#D9544D',
+    color: '#B91C1C',
     fontWeight: '800'
   },
-  confirmCard: {
-    backgroundColor: '#141A2E',
-    borderRadius: 22,
-    padding: 16,
-    marginBottom: 14,
+  summaryPanel: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 18,
+    padding: 20,
     gap: 14
   },
-  confirmTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-    marginBottom: 4
+  summaryLabel: {
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '800'
   },
-  confirmText: {
-    color: '#CBD2E3',
-    lineHeight: 20
+  summaryValue: {
+    color: '#111827',
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums']
   },
-  confirmActions: {
+  summaryRow: {
     flexDirection: 'row',
-    gap: 10
-  },
-  confirmCancel: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
     alignItems: 'center'
   },
-  confirmCancelText: {
-    color: '#141A2E',
-    fontWeight: '800'
+  summaryDivider: {
+    width: 1,
+    height: 36,
+    marginHorizontal: 16,
+    backgroundColor: '#E5E7EB'
   },
-  confirmRemove: {
-    flex: 1,
-    backgroundColor: '#FFE3E0',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center'
+  miniBlock: {
+    flex: 1
   },
-  confirmRemoveText: {
-    color: '#B42318',
-    fontWeight: '800'
+  miniValue: {
+    color: '#111827',
+    fontSize: 17,
+    fontWeight: '900'
   },
-  hero: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#E8EBF4',
-    marginBottom: 18
-  },
-  eyebrow: {
-    color: '#5E6A85',
-    fontSize: 12,
+  miniLabel: {
+    color: '#6B7280',
+    fontSize: 13,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
-    marginBottom: 10
-  },
-  title: {
-    color: '#141A2E',
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '800',
-    marginBottom: 10
-  },
-  subtitle: {
-    color: '#6F7990',
-    fontSize: 15,
-    lineHeight: 22
+    marginTop: 3
   },
   formCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 20,
     borderWidth: 1,
-    borderColor: '#E8EBF4',
-    marginBottom: 18
+    borderColor: '#E5E7EB',
+    borderRadius: 18,
+    padding: 18,
+    gap: 2
   },
   sectionTitle: {
-    color: '#141A2E',
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 14
+    color: '#111827',
+    fontSize: 18,
+    fontWeight: '900'
   },
   label: {
-    color: '#4F5A73',
+    color: '#4B5563',
     fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8
+    fontWeight: '800',
+    marginBottom: 8,
+    marginTop: 12
   },
   input: {
-    backgroundColor: '#F9FAFD',
+    backgroundColor: '#F9FAFB',
     borderWidth: 1,
-    borderColor: '#E3E7F0',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#141A2E',
-    marginBottom: 14
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    color: '#111827',
+    fontSize: 15
   },
   brandRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 14
+    gap: 8,
+    paddingRight: 6
   },
   brandChip: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E3E7F0',
+    borderColor: '#E5E7EB',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10
   },
+  brandChipActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827'
+  },
   brandChipText: {
-    color: '#4F5A73',
-    fontWeight: '700'
+    color: '#4B5563',
+    fontWeight: '800'
   },
   brandChipTextActive: {
     color: '#FFFFFF'
   },
-  previewCard: {
-    backgroundColor: '#F9FAFD',
-    borderWidth: 1,
-    borderColor: '#E3E7F0',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 14
-  },
-  previewLabel: {
-    color: '#7B8499',
-    fontSize: 12,
-    marginBottom: 6
-  },
-  previewValue: {
-    color: '#141A2E',
-    fontSize: 16,
-    fontWeight: '800'
-  },
-  doubleRow: {
+  tripleRow: {
     flexDirection: 'row',
-    gap: 12
+    gap: 10
   },
-  doubleField: {
+  compactField: {
     flex: 1
   },
   button: {
-    backgroundColor: '#141A2E',
-    borderRadius: 18,
-    paddingVertical: 16,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 6
+    marginTop: 18
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700'
+    fontWeight: '800'
   },
-  listHeader: {
+  sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10
+    justifyContent: 'space-between'
   },
   helperText: {
-    color: '#7A839A',
-    fontSize: 13
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '700'
   },
   emptyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
     borderWidth: 1,
-    borderColor: '#E8EBF4'
+    borderColor: '#E5E7EB',
+    borderRadius: 18,
+    padding: 18,
+    gap: 6
   },
   emptyTitle: {
-    color: '#141A2E',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '800'
   },
   emptyDescription: {
-    color: '#707A90',
+    color: '#6B7280',
+    fontSize: 14,
     lineHeight: 20
   },
-  cardItem: {
-    borderRadius: 24,
-    padding: 18,
+  cardList: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    marginBottom: 12
+    borderColor: '#E5E7EB',
+    borderRadius: 18,
+    overflow: 'hidden'
+  },
+  cardItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F2F4',
+    gap: 12
   },
   cardTopRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14
+    gap: 12
+  },
+  cardInfo: {
+    flex: 1
   },
   cardName: {
-    color: '#141A2E',
-    fontSize: 18,
-    fontWeight: '800'
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 4
+  },
+  cardMeta: {
+    color: '#6B7280',
+    fontSize: 13
   },
   cardLimit: {
-    fontSize: 16,
-    fontWeight: '800'
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8
-  },
-  tag: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8
-  },
-  tagText: {
-    color: '#576179',
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  tagHighlight: {
-    backgroundColor: '#E9F8EF',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8
-  },
-  tagHighlightText: {
-    color: '#1E8E5A',
-    fontSize: 12,
-    fontWeight: '700'
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums']
   },
   removeButton: {
     alignSelf: 'flex-start',
-    marginTop: 14,
-    backgroundColor: '#FFF1F0',
-    borderRadius: 14,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 10
+    paddingVertical: 8
   },
   removeButtonText: {
-    color: '#D9544D',
-    fontWeight: '700'
+    color: '#B91C1C',
+    fontSize: 12,
+    fontWeight: '800'
   }
 });

@@ -12,10 +12,13 @@ FROM node:22-alpine AS runtime
 
 WORKDIR /app
 
-RUN npm install -g serve@14.2.5
+COPY package*.json ./
+RUN npm ci --omit=dev
+
 COPY --from=build /app/dist ./dist
+COPY server ./server
 
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["sh", "-c", "serve dist -s -l tcp://0.0.0.0:${PORT}"]
+CMD ["node", "server/index.js"]
