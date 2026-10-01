@@ -188,6 +188,18 @@ export default function CardScreen({ navigation }: any) {
           </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.importButton}
+          onPress={() => navigation.navigate('ImportarFatura')}
+          activeOpacity={0.9}
+        >
+          <View style={styles.importTextBlock}>
+            <Text style={styles.importTitle}>Importar fatura PDF</Text>
+            <Text style={styles.importDescription}>Leia a fatura, revise os lancamentos e salve no relatorio.</Text>
+          </View>
+          <Text style={styles.importAction}>Abrir</Text>
+        </TouchableOpacity>
+
         <View style={styles.formCard}>
           <Text style={styles.sectionTitle}>Novo cartao</Text>
 
@@ -403,6 +415,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: 3
+  },
+  importButton: {
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+  importTextBlock: {
+    flex: 1
+  },
+  importTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 4
+  },
+  importDescription: {
+    color: '#D1D5DB',
+    fontSize: 13,
+    lineHeight: 18
+  },
+  importAction: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900'
   },
   formCard: {
     backgroundColor: '#FFFFFF',

@@ -9,6 +9,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import NovaEntradaScreen from './src/screens/NovaEntradaScreen';
 import CardScreen from './src/screens/CardScreen';
 import InvoiceHistoryScreen from './src/screens/InvoiceHistoryScreen';
+import InvoiceImportScreen from './src/screens/InvoiceImportScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import PurchaseHistoryScreen from './src/screens/PurchaseHistoryScreen';
 
@@ -22,6 +23,7 @@ type RootStackParamList = {
   Home: undefined;
   NovaEntrada: undefined;
   Cartao: undefined;
+  ImportarFatura: undefined;
   HistoricoFatura: undefined;
   HistoricoCompras: undefined;
   Perfil: undefined;
@@ -122,6 +124,11 @@ export default function App() {
           name="Cartao"
           component={CardScreen}
           options={{ title: 'Controle' }}
+        />
+        <Stack.Screen
+          name="ImportarFatura"
+          component={InvoiceImportScreen}
+          options={{ title: 'Importar fatura' }}
         />
         <Stack.Screen
           name="HistoricoFatura"
