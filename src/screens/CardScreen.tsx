@@ -10,6 +10,7 @@ import {
 
 import AppBottomNav from '../components/AppBottomNav';
 import ConfirmSwal from '../components/ConfirmSwal';
+import FeedbackSwal from '../components/FeedbackSwal';
 import { createCard, deleteCard, getCards, updateCard } from '../database/cardService';
 
 type CardItem = {
@@ -50,6 +51,11 @@ export default function CardScreen({ navigation }: any) {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CardItem | null>(null);
   const [editingCard, setEditingCard] = useState<CardItem | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  } | null>(null);
 
   const totalLimit = useMemo(
     () => cards.reduce((sum, card) => sum + Number(card.limit_amount || 0), 0),
@@ -147,10 +153,20 @@ export default function CardScreen({ navigation }: any) {
       setEditingCard(null);
 
       await loadCards();
-      setNotice({ type: 'success', text: `${finalCardName} foi ${editingCard ? 'atualizado' : 'cadastrado'}.` });
+      setNotice(null);
+      setFeedback({
+        type: 'success',
+        title: editingCard ? 'Cartao atualizado' : 'Cartao cadastrado',
+        message: `${finalCardName} foi salvo no banco e ja pode ser usado nas compras.`
+      });
     } catch (error) {
       console.log(error);
       setNotice({ type: 'error', text: 'Nao foi possivel salvar o cartao.' });
+      setFeedback({
+        type: 'error',
+        title: 'Nao salvou',
+        message: 'Nao foi possivel salvar o cartao agora. Tente novamente em alguns segundos.'
+      });
     }
   }
 
@@ -365,6 +381,15 @@ export default function CardScreen({ navigation }: any) {
           message={pendingDelete ? `Isso tambem remove compras ligadas ao ${pendingDelete.name}.` : ''}
           onCancel={() => setPendingDelete(null)}
           onConfirm={confirmRemove}
+        />
+
+        <FeedbackSwal
+          visible={Boolean(feedback)}
+          type={feedback?.type}
+          title={feedback?.title ?? ''}
+          message={feedback?.message ?? ''}
+          buttonText="Continuar"
+          onClose={() => setFeedback(null)}
         />
       </ScrollView>
 
