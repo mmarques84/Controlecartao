@@ -151,6 +151,29 @@ app.post('/api/cards', async (req, res) => {
   res.json({ insertId: dialect === 'mysql' ? result.insertId : result.rows[0].id, rowsAffected: 1 });
 });
 
+app.patch('/api/cards/:cardId', async (req, res) => {
+  const result = await query(
+    `UPDATE cards
+     SET name = $1,
+         limit_amount = $2,
+         closing_day = $3,
+         due_day = $4,
+         best_purchase_day = $5
+     WHERE id = $6 AND user_id = $7`,
+    [
+      req.body.name,
+      req.body.limitAmount,
+      req.body.closingDay,
+      req.body.dueDay,
+      req.body.bestPurchaseDay,
+      req.params.cardId,
+      req.body.userId
+    ]
+  );
+
+  res.json({ rowsAffected: result.rowCount });
+});
+
 app.delete('/api/cards/:cardId', async (req, res) => {
   await query(
     `DELETE FROM installments

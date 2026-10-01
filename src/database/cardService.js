@@ -77,6 +77,91 @@ export const createCard = ({
   });
 };
 
+export const updateCard = ({
+  cardId,
+  name,
+  limitAmount,
+  closingDay,
+  dueDay,
+  bestPurchaseDay
+}) => {
+  if (Platform.OS === 'web' && canUseApi()) {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return { error: 'NO_SESSION' };
+      }
+
+      return apiRequest(`/cards/${cardId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          userId: user.id,
+          name,
+          limitAmount,
+          closingDay,
+          dueDay,
+          bestPurchaseDay
+        })
+      });
+    });
+  }
+
+  if (Platform.OS === 'web') {
+    return getCurrentUser().then((user) => {
+      if (!user?.id) {
+        return { error: 'NO_SESSION' };
+      }
+
+      const store = readWebStore();
+      let rowsAffected = 0;
+
+      store.cards = store.cards.map((card) => {
+        if (card.id !== cardId || card.user_id !== user.id) {
+          return card;
+        }
+
+        rowsAffected = 1;
+        return {
+          ...card,
+          name,
+          limit_amount: limitAmount,
+          closing_day: closingDay,
+          due_day: dueDay,
+          best_purchase_day: bestPurchaseDay
+        };
+      });
+      writeWebStore(store);
+
+      return { rowsAffected };
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    getCurrentUser()
+      .then((user) => {
+        if (!user?.id) {
+          resolve({ error: 'NO_SESSION' });
+          return;
+        }
+
+        db.transaction((tx) => {
+          tx.executeSql(
+            `UPDATE cards
+             SET name = ?,
+                 limit_amount = ?,
+                 closing_day = ?,
+                 due_day = ?,
+                 best_purchase_day = ?
+             WHERE id = ? AND user_id = ?`,
+            [name, limitAmount, closingDay, dueDay, bestPurchaseDay, cardId, user.id],
+            (_, result) => resolve(result),
+            (_, error) => reject(error)
+          );
+        });
+      })
+      .catch(reject);
+  });
+};
+
 export const getCards = () => {
   if (Platform.OS === 'web' && canUseApi()) {
     return getCurrentUser().then((user) => {

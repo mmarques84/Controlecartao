@@ -10,7 +10,7 @@ import {
 
 import AppBottomNav from '../components/AppBottomNav';
 import ConfirmSwal from '../components/ConfirmSwal';
-import { createCard, deleteCard, getCards } from '../database/cardService';
+import { createCard, deleteCard, getCards, updateCard } from '../database/cardService';
 
 type CardItem = {
   id: number;
@@ -49,6 +49,7 @@ export default function CardScreen({ navigation }: any) {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CardItem | null>(null);
+  const [editingCard, setEditingCard] = useState<CardItem | null>(null);
 
   const totalLimit = useMemo(
     () => cards.reduce((sum, card) => sum + Number(card.limit_amount || 0), 0),
@@ -82,7 +83,9 @@ export default function CardScreen({ navigation }: any) {
   }, []);
 
   async function handleSave() {
-    const finalCardName = [selectedBrand, cardVariant.trim()].filter(Boolean).join(' ');
+    const finalCardName = editingCard
+      ? cardVariant.trim()
+      : [selectedBrand, cardVariant.trim()].filter(Boolean).join(' ');
     const parsedLimit = parseCurrencyInput(limitAmount);
     const parsedClosingDay = Number(closingDay);
     const parsedDueDay = Number(dueDay);
@@ -116,13 +119,24 @@ export default function CardScreen({ navigation }: any) {
     }
 
     try {
-      await createCard({
-        name: finalCardName,
-        limitAmount: parsedLimit,
-        closingDay: parsedClosingDay,
-        dueDay: parsedDueDay,
-        bestPurchaseDay: parsedBestPurchaseDay
-      });
+      if (editingCard) {
+        await updateCard({
+          cardId: editingCard.id,
+          name: finalCardName,
+          limitAmount: parsedLimit,
+          closingDay: parsedClosingDay,
+          dueDay: parsedDueDay,
+          bestPurchaseDay: parsedBestPurchaseDay
+        });
+      } else {
+        await createCard({
+          name: finalCardName,
+          limitAmount: parsedLimit,
+          closingDay: parsedClosingDay,
+          dueDay: parsedDueDay,
+          bestPurchaseDay: parsedBestPurchaseDay
+        });
+      }
 
       setSelectedBrand('Itau');
       setCardVariant('');
@@ -130,13 +144,34 @@ export default function CardScreen({ navigation }: any) {
       setClosingDay('');
       setDueDay('');
       setBestPurchaseDay('');
+      setEditingCard(null);
 
       await loadCards();
-      setNotice({ type: 'success', text: `${finalCardName} foi cadastrado.` });
+      setNotice({ type: 'success', text: `${finalCardName} foi ${editingCard ? 'atualizado' : 'cadastrado'}.` });
     } catch (error) {
       console.log(error);
       setNotice({ type: 'error', text: 'Nao foi possivel salvar o cartao.' });
     }
+  }
+
+  function startEditing(card: CardItem) {
+    setEditingCard(card);
+    setCardVariant(card.name);
+    setLimitAmount(formatCurrencyInput(String(Math.round(Number(card.limit_amount || 0) * 100))));
+    setClosingDay(String(card.closing_day));
+    setDueDay(String(card.due_day));
+    setBestPurchaseDay(String(card.best_purchase_day));
+    setNotice(null);
+  }
+
+  function cancelEditing() {
+    setEditingCard(null);
+    setSelectedBrand('Itau');
+    setCardVariant('');
+    setLimitAmount('');
+    setClosingDay('');
+    setDueDay('');
+    setBestPurchaseDay('');
   }
 
   async function confirmRemove() {
@@ -201,30 +236,41 @@ export default function CardScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <View style={styles.formCard}>
-          <Text style={styles.sectionTitle}>Novo cartao</Text>
+          <View style={styles.formHeader}>
+            <Text style={styles.sectionTitle}>{editingCard ? 'Editar cartao' : 'Novo cartao'}</Text>
+            {editingCard ? (
+              <TouchableOpacity onPress={cancelEditing} activeOpacity={0.85}>
+                <Text style={styles.cancelEditText}>Cancelar</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
-          <Text style={styles.label}>Banco</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRow}>
-            {CARD_BRANDS.map((brand) => {
-              const active = selectedBrand === brand;
+          {editingCard ? null : (
+            <>
+              <Text style={styles.label}>Banco</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRow}>
+                {CARD_BRANDS.map((brand) => {
+                  const active = selectedBrand === brand;
 
-              return (
-                <TouchableOpacity
-                  key={brand}
-                  style={[styles.brandChip, active && styles.brandChipActive]}
-                  onPress={() => setSelectedBrand(brand)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.brandChipText, active && styles.brandChipTextActive]}>{brand}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                  return (
+                    <TouchableOpacity
+                      key={brand}
+                      style={[styles.brandChip, active && styles.brandChipActive]}
+                      onPress={() => setSelectedBrand(brand)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.brandChipText, active && styles.brandChipTextActive]}>{brand}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
 
-          <Text style={styles.label}>Complemento</Text>
+          <Text style={styles.label}>{editingCard ? 'Nome do cartao' : 'Complemento'}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Platinum, Black"
+            placeholder={editingCard ? 'Ex: Itau meu' : 'Ex: Platinum, Black'}
             value={cardVariant}
             onChangeText={setCardVariant}
           />
@@ -274,7 +320,7 @@ export default function CardScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity style={styles.button} onPress={handleSave} activeOpacity={0.9}>
-            <Text style={styles.buttonText}>Salvar cartao</Text>
+            <Text style={styles.buttonText}>{editingCard ? 'Salvar alteracoes' : 'Salvar cartao'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -304,6 +350,9 @@ export default function CardScreen({ navigation }: any) {
 
                 <TouchableOpacity onPress={() => setPendingDelete(card)} style={styles.removeButton}>
                   <Text style={styles.removeButtonText}>Remover</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => startEditing(card)} style={styles.editButton}>
+                  <Text style={styles.editButtonText}>Editar</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -452,9 +501,20 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 2
   },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12
+  },
   sectionTitle: {
     color: '#111827',
     fontSize: 18,
+    fontWeight: '900'
+  },
+  cancelEditText: {
+    color: '#2F5BFF',
+    fontSize: 13,
     fontWeight: '900'
   },
   label: {
@@ -591,6 +651,18 @@ const styles = StyleSheet.create({
   },
   removeButtonText: {
     color: '#B91C1C',
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  editButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  editButtonText: {
+    color: '#2F5BFF',
     fontSize: 12,
     fontWeight: '800'
   }
