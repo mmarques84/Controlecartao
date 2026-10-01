@@ -86,6 +86,7 @@ export default function NovaEntradaScreen({ navigation }: any) {
   const scrollRef = useRef<ScrollView>(null);
   const [transcricao, setTranscricao] = useState('');
   const [transcriptionNotice, setTranscriptionNotice] = useState('');
+  const [formNotice, setFormNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
@@ -274,12 +275,12 @@ export default function NovaEntradaScreen({ navigation }: any) {
     const parsedInstallments = parcelado ? Number(parcelas || '1') : 1;
 
     if (paymentMethod === 'card' && !selectedCardId) {
-      Alert.alert('Escolha um cartao', 'Selecione o cartao da compra antes de salvar.');
+      setFormNotice({ type: 'error', text: 'Escolha o cartao antes de salvar essa compra.' });
       return;
     }
 
     if (!descricao.trim() || !purchaseDate || !parsedValue) {
-      Alert.alert('Campos obrigatorios', 'Preencha data, descricao e valor.');
+      setFormNotice({ type: 'error', text: 'Preencha descricao, data e valor para salvar.' });
       return;
     }
 
@@ -295,7 +296,7 @@ export default function NovaEntradaScreen({ navigation }: any) {
       purchaseDate
     }).then((result: any) => {
       if (result?.error) {
-        Alert.alert('Erro', 'Nao foi possivel salvar a compra.');
+        setFormNotice({ type: 'error', text: 'Nao foi possivel salvar a compra agora.' });
         return;
       }
 
@@ -310,12 +311,7 @@ export default function NovaEntradaScreen({ navigation }: any) {
       setParcelas('1');
       setRecorrente(false);
       setRecorrenteTipo('');
-      Alert.alert('Compra salva', 'Sua compra foi cadastrada com sucesso.', [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('Home')
-        }
-      ]);
+      setFormNotice({ type: 'success', text: 'Compra salva com sucesso. O resumo da Home ja foi atualizado.' });
     });
   }
 
@@ -344,6 +340,23 @@ export default function NovaEntradaScreen({ navigation }: any) {
         </View>
 
         <View style={styles.formCard}>
+          {formNotice ? (
+            <View style={formNotice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
+              <Text style={formNotice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
+                {formNotice.text}
+              </Text>
+              {formNotice.type === 'success' ? (
+                <TouchableOpacity
+                  style={styles.noticeAction}
+                  onPress={() => navigation.navigate('Home')}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.noticeActionText}>Ver resumo</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
           <Text style={styles.label}>Transcricao IA</Text>
           <TextInput
             style={[styles.input, styles.aiInput]}
@@ -677,6 +690,44 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: '#E8EBF4'
+  },
+  noticeSuccess: {
+    backgroundColor: '#E9F8EF',
+    borderWidth: 1,
+    borderColor: '#BCE9CE',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+    gap: 12
+  },
+  noticeError: {
+    backgroundColor: '#FFF1F0',
+    borderWidth: 1,
+    borderColor: '#FFD4D0',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16
+  },
+  noticeSuccessText: {
+    color: '#1E7F52',
+    fontWeight: '800',
+    lineHeight: 20
+  },
+  noticeErrorText: {
+    color: '#D9544D',
+    fontWeight: '800',
+    lineHeight: 20
+  },
+  noticeAction: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10
+  },
+  noticeActionText: {
+    color: '#1E7F52',
+    fontWeight: '800'
   },
   label: {
     color: '#4F5A73',

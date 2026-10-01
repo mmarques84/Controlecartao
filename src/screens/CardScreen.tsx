@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -74,6 +73,8 @@ export default function CardScreen() {
   const [dueDay, setDueDay] = useState('');
   const [bestPurchaseDay, setBestPurchaseDay] = useState('');
   const [cards, setCards] = useState<CardItem[]>([]);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<CardItem | null>(null);
 
   async function loadCards() {
     try {
@@ -96,7 +97,7 @@ export default function CardScreen() {
     const parsedBestPurchaseDay = Number(bestPurchaseDay);
 
     if (!finalCardName || !limitAmount || !closingDay || !dueDay || !bestPurchaseDay) {
-      Alert.alert('Campos obrigatorios', 'Preencha todos os dados do cartao.');
+      setNotice({ type: 'error', text: 'Preencha todos os dados do cartao antes de salvar.' });
       return;
     }
 
@@ -106,7 +107,7 @@ export default function CardScreen() {
       Number.isNaN(parsedDueDay) ||
       Number.isNaN(parsedBestPurchaseDay)
     ) {
-      Alert.alert('Dados invalidos', 'Confira os numeros informados.');
+      setNotice({ type: 'error', text: 'Confira os numeros informados no limite e nos dias.' });
       return;
     }
 
@@ -118,7 +119,7 @@ export default function CardScreen() {
       parsedBestPurchaseDay < 1 ||
       parsedBestPurchaseDay > 31
     ) {
-      Alert.alert('Dia invalido', 'Use dias entre 1 e 31.');
+      setNotice({ type: 'error', text: 'Use dias entre 1 e 31 para fechamento, vencimento e melhor compra.' });
       return;
     }
 
@@ -139,29 +140,58 @@ export default function CardScreen() {
       setBestPurchaseDay('');
 
       await loadCards();
-      Alert.alert('Cartao salvo', 'Seu cartao foi cadastrado com sucesso.');
+      setNotice({ type: 'success', text: `${finalCardName} foi cadastrado com sucesso.` });
     } catch (error) {
       console.log(error);
-      Alert.alert('Erro', 'Nao foi possivel salvar o cartao.');
+      setNotice({ type: 'error', text: 'Nao foi possivel salvar o cartao.' });
     }
   }
 
-  function handleRemove(cardId: number) {
-    Alert.alert('Remover cartao', 'Deseja remover esse cartao e as compras ligadas a ele?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteCard(cardId);
-          await loadCards();
-        }
-      }
-    ]);
+  async function confirmRemove() {
+    if (!pendingDelete?.id) {
+      return;
+    }
+
+    try {
+      await deleteCard(pendingDelete.id);
+      setNotice({ type: 'success', text: `${pendingDelete.name} foi removido.` });
+      setPendingDelete(null);
+      await loadCards();
+    } catch (error) {
+      console.log(error);
+      setNotice({ type: 'error', text: 'Nao foi possivel remover o cartao.' });
+    }
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {notice ? (
+        <View style={notice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
+          <Text style={notice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
+            {notice.text}
+          </Text>
+        </View>
+      ) : null}
+
+      {pendingDelete ? (
+        <View style={styles.confirmCard}>
+          <View>
+            <Text style={styles.confirmTitle}>Remover cartao?</Text>
+            <Text style={styles.confirmText}>
+              Isso tambem remove compras ligadas ao {pendingDelete.name}.
+            </Text>
+          </View>
+          <View style={styles.confirmActions}>
+            <TouchableOpacity style={styles.confirmCancel} onPress={() => setPendingDelete(null)}>
+              <Text style={styles.confirmCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmRemove} onPress={confirmRemove}>
+              <Text style={styles.confirmRemoveText}>Remover</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>Cadastro do cartao</Text>
         <Text style={styles.title}>Guarde limite e a melhor data de compra</Text>
@@ -309,7 +339,7 @@ export default function CardScreen() {
                 </View>
               </View>
 
-              <TouchableOpacity onPress={() => handleRemove(card.id)} style={styles.removeButton}>
+              <TouchableOpacity onPress={() => setPendingDelete(card)} style={styles.removeButton}>
                 <Text style={styles.removeButtonText}>Remover cartao</Text>
               </TouchableOpacity>
             </View>
@@ -328,6 +358,73 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 32
+  },
+  noticeSuccess: {
+    backgroundColor: '#E9F8EF',
+    borderWidth: 1,
+    borderColor: '#BCE9CE',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14
+  },
+  noticeError: {
+    backgroundColor: '#FFF1F0',
+    borderWidth: 1,
+    borderColor: '#FFD4D0',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14
+  },
+  noticeSuccessText: {
+    color: '#1E7F52',
+    fontWeight: '800'
+  },
+  noticeErrorText: {
+    color: '#D9544D',
+    fontWeight: '800'
+  },
+  confirmCard: {
+    backgroundColor: '#141A2E',
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14,
+    gap: 14
+  },
+  confirmTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4
+  },
+  confirmText: {
+    color: '#CBD2E3',
+    lineHeight: 20
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  confirmCancel: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  confirmCancelText: {
+    color: '#141A2E',
+    fontWeight: '800'
+  },
+  confirmRemove: {
+    flex: 1,
+    backgroundColor: '#FFE3E0',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  confirmRemoveText: {
+    color: '#B42318',
+    fontWeight: '800'
   },
   hero: {
     backgroundColor: '#FFFFFF',

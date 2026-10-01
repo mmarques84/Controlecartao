@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { getCards } from '../database/cardService';
@@ -29,6 +29,8 @@ export default function PurchaseHistoryScreen() {
   const [search, setSearch] = useState('');
   const [selectedCard, setSelectedCard] = useState('Todos');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PurchaseItem | null>(null);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   async function loadData() {
     const [cardList, purchaseList] = await Promise.all([getCards(), getRecentPurchases()]);
@@ -42,21 +44,23 @@ export default function PurchaseHistoryScreen() {
     }, [])
   );
 
-  function handleRemovePurchase(purchaseId: number) {
-    Alert.alert('Remover compra', 'Deseja remover esta compra do historico?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: async () => {
-          await deletePurchase(purchaseId);
-          if (expandedId === purchaseId) {
-            setExpandedId(null);
-          }
-          await loadData();
-        }
+  async function confirmRemovePurchase() {
+    if (!pendingDelete?.id) {
+      return;
+    }
+
+    try {
+      await deletePurchase(pendingDelete.id);
+      if (expandedId === pendingDelete.id) {
+        setExpandedId(null);
       }
-    ]);
+      setPendingDelete(null);
+      setNotice({ type: 'success', text: 'Compra removida com sucesso.' });
+      await loadData();
+    } catch (error) {
+      console.log(error);
+      setNotice({ type: 'error', text: 'Nao foi possivel remover a compra.' });
+    }
   }
 
   const filteredPurchases = useMemo(() => {
@@ -76,6 +80,37 @@ export default function PurchaseHistoryScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {notice ? (
+        <View style={notice.type === 'success' ? styles.noticeSuccess : styles.noticeError}>
+          <Text style={notice.type === 'success' ? styles.noticeSuccessText : styles.noticeErrorText}>
+            {notice.text}
+          </Text>
+        </View>
+      ) : null}
+
+      {pendingDelete ? (
+        <View style={styles.confirmCard}>
+          <View>
+            <Text style={styles.confirmTitle}>Remover esta compra?</Text>
+            <Text style={styles.confirmText}>
+              {pendingDelete.description} .{' '}
+              {Number(pendingDelete.total_amount).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+              })}
+            </Text>
+          </View>
+          <View style={styles.confirmActions}>
+            <TouchableOpacity style={styles.confirmCancel} onPress={() => setPendingDelete(null)}>
+              <Text style={styles.confirmCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmRemove} onPress={confirmRemovePurchase}>
+              <Text style={styles.confirmRemoveText}>Remover</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>Historico real</Text>
         <Text style={styles.title}>Busca, filtros e detalhes das compras</Text>
@@ -186,7 +221,7 @@ export default function PurchaseHistoryScreen() {
                   </View>
 
                   <TouchableOpacity
-                    onPress={() => handleRemovePurchase(item.id)}
+                    onPress={() => setPendingDelete(item)}
                     style={styles.removeButton}
                     activeOpacity={0.9}
                   >
@@ -212,6 +247,73 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 32
+  },
+  noticeSuccess: {
+    backgroundColor: '#E9F8EF',
+    borderWidth: 1,
+    borderColor: '#BCE9CE',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14
+  },
+  noticeError: {
+    backgroundColor: '#FFF1F0',
+    borderWidth: 1,
+    borderColor: '#FFD4D0',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14
+  },
+  noticeSuccessText: {
+    color: '#1E7F52',
+    fontWeight: '800'
+  },
+  noticeErrorText: {
+    color: '#D9544D',
+    fontWeight: '800'
+  },
+  confirmCard: {
+    backgroundColor: '#141A2E',
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14,
+    gap: 14
+  },
+  confirmTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 4
+  },
+  confirmText: {
+    color: '#CBD2E3',
+    lineHeight: 20
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  confirmCancel: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  confirmCancelText: {
+    color: '#141A2E',
+    fontWeight: '800'
+  },
+  confirmRemove: {
+    flex: 1,
+    backgroundColor: '#FFE3E0',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  confirmRemoveText: {
+    color: '#B42318',
+    fontWeight: '800'
   },
   hero: {
     backgroundColor: '#FFFFFF',
