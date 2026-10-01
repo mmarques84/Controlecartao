@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AppBottomNavProps = {
   navigation: any;
@@ -44,32 +45,41 @@ function TabIcon({ tabKey, active }: { tabKey: string; active: boolean }) {
 }
 
 export default function AppBottomNav({ navigation, current }: AppBottomNavProps) {
-  return (
-    <View style={styles.wrapper}>
-      {tabs.map((tab) => {
-        const active = tab.key === current;
+  const insets = useSafeAreaInsets();
 
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, active && styles.tabActive]}
-            onPress={() => {
-              if (!active) {
-                navigation.navigate(tab.route);
-              }
-            }}
-            activeOpacity={0.9}
-          >
-            <TabIcon tabKey={tab.key} active={active} />
-            <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
+  return (
+    <View style={[styles.safeArea, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={styles.wrapper}>
+        {tabs.map((tab) => {
+          const active = tab.key === current;
+
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => {
+                if (!active) {
+                  navigation.navigate(tab.route);
+                }
+              }}
+              activeOpacity={0.9}
+            >
+              <TabIcon tabKey={tab.key} active={active} />
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: '#F6F7FB',
+    paddingHorizontal: 14,
+    paddingTop: 8
+  },
   wrapper: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
@@ -78,7 +88,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8EBF4',
     gap: 6,
-    marginTop: 16
+    boxShadow: '0 8px 22px rgba(20, 26, 46, 0.10)'
   },
   tab: {
     flex: 1,

@@ -1,4 +1,13 @@
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { useState } from 'react';
 import { persistSession, register } from '../database/authService';
 
@@ -59,67 +68,84 @@ export default function RegisterScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.hero}>
-        <View style={styles.heroGlowOrange} />
-        <View style={styles.heroGlowBlue} />
-        <Text style={styles.brand}>ControleCartao</Text>
-        <Text style={styles.title}>Crie sua conta e comece com o pe direito</Text>
-        <Text style={styles.subtitle}>Seu painel de gastos, cartoes e relatorios em uma experiencia mais bonita.</Text>
-      </View>
-
-      <View style={styles.formCard}>
-        <Text style={styles.label}>Email</Text>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-          style={styles.input}
-      />
-
-        <Text style={styles.label}>Senha</Text>
-        <View style={styles.passwordWrapper}>
-          <TextInput
-            placeholder="Senha"
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-            style={styles.passwordInput}
-          />
-          <TouchableOpacity onPress={() => setShowPassword((current) => !current)}>
-            <Text style={styles.toggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
-          </TouchableOpacity>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.hero}>
+          <View style={styles.heroGlowOrange} />
+          <View style={styles.heroGlowBlue} />
+          <Text style={styles.brand}>ControleCartao</Text>
+          <Text style={styles.title}>Crie sua conta e comece com o pe direito</Text>
+          <Text style={styles.subtitle}>Seu painel de gastos, cartoes e relatorios em uma experiencia mais bonita.</Text>
         </View>
 
-        {message ? (
-          <View style={message.type === 'error' ? styles.messageError : styles.messageSuccess}>
-            <Text style={message.type === 'error' ? styles.messageErrorText : styles.messageSuccessText}>
-              {message.text}
-            </Text>
+        <View style={styles.formCard}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.passwordWrapper}>
+            <TextInput
+              placeholder="Senha"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              textContentType="newPassword"
+              autoComplete="new-password"
+              style={styles.passwordInput}
+            />
+            <TouchableOpacity onPress={() => setShowPassword((current) => !current)}>
+              <Text style={styles.toggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+            </TouchableOpacity>
           </View>
-        ) : null}
 
-        <TouchableOpacity
-          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
-          onPress={handleRegister}
-          disabled={loading}
-        >
-          <Text style={styles.primaryButtonText}>{loading ? 'Criando...' : 'Cadastrar'}</Text>
-        </TouchableOpacity>
+          {message ? (
+            <View style={message.type === 'error' ? styles.messageError : styles.messageSuccess}>
+              <Text style={message.type === 'error' ? styles.messageErrorText : styles.messageSuccessText}>
+                {message.text}
+              </Text>
+            </View>
+          ) : null}
 
-        <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.linkText}>Ja tenho conta</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <TouchableOpacity
+            style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            <Text style={styles.primaryButtonText}>{loading ? 'Criando...' : 'Cadastrar'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.linkText}>Ja tenho conta</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: '#F6F7FB'
+  },
+  content: {
+    flexGrow: 1,
     padding: 20,
     justifyContent: 'center'
   },
@@ -161,8 +187,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#141A2E',
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 27,
+    lineHeight: 33,
     fontWeight: '800',
     marginBottom: 10
   },

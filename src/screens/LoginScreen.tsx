@@ -1,4 +1,14 @@
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { useEffect, useState } from 'react';
 import { getCurrentUser, login } from '../database/authService';
 import { authenticateWithBiometrics, canUseBiometricAuth } from '../services/biometricAuth';
@@ -85,82 +95,99 @@ export default function LoginScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.hero}>
-        <Image
-          source={require('../../assets/splash.png')}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
-        <Text style={styles.title}>Entrar na sua central de gastos</Text>
-        <Text style={styles.subtitle}>Acompanhe fatura, cartoes e relatorios em uma experiencia mais premium.</Text>
-      </View>
-
-      <View style={styles.formCard}>
-        <Text style={styles.label}>Email</Text>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-          style={styles.input}
-      />
-
-        <Text style={styles.label}>Senha</Text>
-        <View style={styles.passwordWrapper}>
-          <TextInput
-            placeholder="Senha"
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-            style={styles.passwordInput}
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.hero}>
+          <Image
+            source={require('../../assets/splash.png')}
+            style={styles.heroImage}
+            resizeMode="cover"
           />
-          <TouchableOpacity onPress={() => setShowPassword((current) => !current)}>
-            <Text style={styles.toggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
-          </TouchableOpacity>
+          <Text style={styles.title}>Entrar na sua central de gastos</Text>
+          <Text style={styles.subtitle}>Acompanhe fatura, cartoes e relatorios em uma experiencia mais premium.</Text>
         </View>
 
-        {message ? (
-          <View style={message.type === 'error' ? styles.messageError : styles.messageSuccess}>
-            <Text style={message.type === 'error' ? styles.messageErrorText : styles.messageSuccessText}>
-              {message.text}
-            </Text>
+        <View style={styles.formCard}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.passwordWrapper}>
+            <TextInput
+              placeholder="Senha"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              textContentType="password"
+              autoComplete="password"
+              style={styles.passwordInput}
+            />
+            <TouchableOpacity onPress={() => setShowPassword((current) => !current)}>
+              <Text style={styles.toggleText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+            </TouchableOpacity>
           </View>
-        ) : null}
 
-        {canUseBiometrics ? (
+          {message ? (
+            <View style={message.type === 'error' ? styles.messageError : styles.messageSuccess}>
+              <Text style={message.type === 'error' ? styles.messageErrorText : styles.messageSuccessText}>
+                {message.text}
+              </Text>
+            </View>
+          ) : null}
+
+          {canUseBiometrics ? (
+            <TouchableOpacity
+              onPress={handleBiometricLogin}
+              disabled={loading}
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>Entrar com Face ID ou digital</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <TouchableOpacity
-            onPress={handleBiometricLogin}
+            onPress={handleLogin}
             disabled={loading}
-            style={styles.secondaryButton}
+            style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
           >
-            <Text style={styles.secondaryButtonText}>Entrar com Face ID ou digital</Text>
+            <Text style={styles.primaryButtonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
           </TouchableOpacity>
-        ) : null}
 
-      <TouchableOpacity
-        onPress={handleLogin}
-        disabled={loading}
-          style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
-      >
-          <Text style={styles.primaryButtonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => navigation.navigate('Register')}
-          style={styles.linkButton}
-      >
-          <Text style={styles.linkText}>Criar conta</Text>
-      </TouchableOpacity>
-      </View>
-    </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Register')}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkText}>Criar conta</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: '#F6F7FB'
+  },
+  content: {
+    flexGrow: 1,
     padding: 20,
     justifyContent: 'center'
   },
@@ -174,9 +201,9 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     width: '100%',
-    height: 240,
+    height: 180,
     borderRadius: 22,
-    marginBottom: 18
+    marginBottom: 16
   },
   title: {
     color: '#141A2E',

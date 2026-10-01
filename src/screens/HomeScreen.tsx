@@ -396,8 +396,8 @@ const styles = StyleSheet.create({
     flex: 1
   },
   content: {
-    padding: 20,
-    paddingBottom: 20
+    padding: 16,
+    paddingBottom: 18
   },
   noticeSuccess: {
     backgroundColor: '#E9F8EF',
@@ -472,8 +472,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
-    borderRadius: 30,
-    padding: 24,
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 18,
     borderWidth: 1,
     borderColor: '#E8EBF4'
@@ -506,24 +506,21 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#141A2E',
-    fontSize: 29,
-    lineHeight: 35,
+    fontSize: 24,
+    lineHeight: 30,
     fontWeight: '800',
     marginBottom: 10,
-    maxWidth: '88%'
+    maxWidth: '94%'
   },
   heroSubtitle: {
     color: '#66708A',
     fontSize: 15,
     lineHeight: 22,
-    marginBottom: 22,
-    maxWidth: '86%'
+    marginBottom: 18,
+    maxWidth: '96%'
   },
   amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12
+    gap: 14
   },
   amountLabel: {
     color: '#7A839A',
@@ -532,14 +529,15 @@ const styles = StyleSheet.create({
   },
   amountValue: {
     color: '#141A2E',
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '800'
   },
   primaryButton: {
     backgroundColor: '#141A2E',
     paddingHorizontal: 18,
     paddingVertical: 14,
-    borderRadius: 16
+    borderRadius: 16,
+    alignItems: 'center'
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -547,14 +545,16 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 22
   },
   metricCard: {
     flex: 1,
+    minWidth: 145,
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingVertical: 18,
+    borderRadius: 18,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#E8EBF4'
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
   },
   metricMoney: {
     color: '#141A2E',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     marginBottom: 8
   },
@@ -728,10 +728,10 @@ const styles = StyleSheet.create({
   purchaseCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
+    borderRadius: 18,
+    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E8EBF4'
@@ -766,7 +766,8 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
   purchaseRight: {
-    alignItems: 'flex-end'
+    alignItems: 'flex-end',
+    minWidth: 86
   },
   purchaseAmount: {
     color: '#141A2E',
