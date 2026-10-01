@@ -8,9 +8,9 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1459BD"
     },
     "ios": {
       "supportsTablet": true
@@ -18,12 +18,32 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1459BD"
       },
       "edgeToEdgeEnabled": true
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "enabled": false
+    },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permita usar Face ID para entrar rapidamente no ControleCartao."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita acessar suas fotos para definir uma imagem de perfil."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ]
   }
 }
