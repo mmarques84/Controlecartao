@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-const { initSchema, isDatabaseConfigured, query } = require('./db');
+const { dialect, initSchema, isDatabaseConfigured, query } = require('./db');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -61,14 +61,29 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    const result = await query(
-      `INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email, profile_photo, created_at`,
-      [email, password]
-    );
+    let user;
 
-    res.json({ success: true, userId: result.rows[0].id, user: result.rows[0] });
+    if (dialect === 'mysql') {
+      const insertResult = await query(
+        `INSERT INTO users (email, password) VALUES ($1, $2)`,
+        [email, password]
+      );
+      const userResult = await query(
+        `SELECT id, email, profile_photo, created_at FROM users WHERE id = $1`,
+        [insertResult.insertId]
+      );
+      user = userResult.rows[0];
+    } else {
+      const result = await query(
+        `INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email, profile_photo, created_at`,
+        [email, password]
+      );
+      user = result.rows[0];
+    }
+
+    res.json({ success: true, userId: user.id, user });
   } catch (error) {
-    if (error.code === '23505') {
+    if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
       res.json({ error: 'EMAIL_EXISTS' });
       return;
     }
@@ -119,10 +134,10 @@ app.get('/api/cards', async (req, res) => {
 });
 
 app.post('/api/cards', async (req, res) => {
+  const insertSql = `INSERT INTO cards (user_id, name, limit_amount, closing_day, due_day, best_purchase_day)
+     VALUES ($1, $2, $3, $4, $5, $6)`;
   const result = await query(
-    `INSERT INTO cards (user_id, name, limit_amount, closing_day, due_day, best_purchase_day)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id`,
+    dialect === 'mysql' ? insertSql : `${insertSql} RETURNING id`,
     [
       req.body.userId,
       req.body.name,
@@ -133,7 +148,7 @@ app.post('/api/cards', async (req, res) => {
     ]
   );
 
-  res.json({ insertId: result.rows[0].id, rowsAffected: 1 });
+  res.json({ insertId: dialect === 'mysql' ? result.insertId : result.rows[0].id, rowsAffected: 1 });
 });
 
 app.delete('/api/cards/:cardId', async (req, res) => {
@@ -201,11 +216,12 @@ app.post('/api/purchases', async (req, res) => {
     }
   }
 
-  const purchaseResult = await query(
-    `INSERT INTO purchases
+  const purchaseInsertSql = `INSERT INTO purchases
       (user_id, card_id, payment_method, description, category, total_amount, installments, is_recurring, recurring_label, purchase_date)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING id`,
+    `;
+  const purchaseResult = await query(
+    dialect === 'mysql' ? purchaseInsertSql : `${purchaseInsertSql} RETURNING id`,
     [
       userId,
       paymentMethod === 'pix' ? null : cardId,
@@ -219,7 +235,7 @@ app.post('/api/purchases', async (req, res) => {
       purchaseDate
     ]
   );
-  const purchaseId = purchaseResult.rows[0].id;
+  const purchaseId = dialect === 'mysql' ? purchaseResult.insertId : purchaseResult.rows[0].id;
 
   if (paymentMethod === 'card') {
     const installmentCount = Math.max(Number(installments || 1), 1);
@@ -254,6 +270,12 @@ app.get('/api/installments', async (req, res) => {
   const month = String(req.query.month).padStart(2, '0');
   const year = String(req.query.year);
 
+  const dateFilter = dialect === 'mysql'
+    ? `DATE_FORMAT(i.due_date, '%m') = $2
+       AND DATE_FORMAT(i.due_date, '%Y') = $3`
+    : `to_char(i.due_date, 'MM') = $2
+       AND to_char(i.due_date, 'YYYY') = $3`;
+
   const result = await query(
     `SELECT
        i.id,
@@ -269,8 +291,7 @@ app.get('/api/installments', async (req, res) => {
      JOIN purchases p ON p.id = i.purchase_id
      LEFT JOIN cards c ON c.id = p.card_id
      WHERE p.user_id = $1
-       AND to_char(i.due_date, 'MM') = $2
-       AND to_char(i.due_date, 'YYYY') = $3
+       AND ${dateFilter}
      ORDER BY i.due_date ASC`,
     [userId, month, year]
   );
